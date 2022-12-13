@@ -1,5 +1,7 @@
 # pokemon-code README
 
+This project is forked from [matthewkremer/pokemon-code](https://github.com/matthewkremer/pokemon-code)
+
 You may have heard of the indie game Pokemon GO, but have you heard of Pokemon CODE? Catch Pokemon while coding in VS Code, it's the ultimate productivity killer.
 
 Install Pokemon-Code in VS Code by adding the `pokemon-code` extension.
@@ -14,12 +16,6 @@ Catch Pokemon. Use Command Pallate to run the following:
 
 `Pokemon - Pokedex` = Shows you the Pokemon you've caught
 
-## Requirements
-
-You should be at least the age of 11.
-
-## Known Issues
-
 ## Release Notes
 
 ### 0.0.4
@@ -32,5 +28,5 @@ Fixed issue that some version may not save file successfully.
 
 ### 0.0.6
 
-Fixed "extension start" issue caused by extensionPath error
+Fixed "extension start" issue caused by extensionPath error.
 
