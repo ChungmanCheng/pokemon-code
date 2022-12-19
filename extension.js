@@ -186,18 +186,10 @@ function activate(context) {
     // This line of code will only be executed once when your extension is activated
     console.log('Congratulations, your extension "pokemon-code" is now active!');
 
-    // The command has been defined in the package.json file
-    // Now provide the implementation of the command with  registerCommand
-    // The commandId parameter must match the command field in package.json
-    var disposable = vscode.commands.registerCommand('extension.startPokemonCode', function () {
-        // The code you place here will be executed every time your command is executed
+    init_tallgrass();
+    // Display a message box to the user
+    vscode.window.showInformationMessage('Your Pokemon journey has begun!', {});
 
-        init_tallgrass();
-
-        // Display a message box to the user
-        vscode.window.showInformationMessage('Your Pokemon journey has begun!', {});
-
-    });
 
     var disposable2 = vscode.commands.registerCommand('extension.showPokemon', function () {
         // The code you place here will be executed every time your command is executed
@@ -213,10 +205,10 @@ function activate(context) {
 
     });
 
-    context.subscriptions.push(disposable);
     context.subscriptions.push(disposable2);
     context.subscriptions.push(disposable3);
 }
+
 exports.activate = activate;
 
 // this method is called when your extension is deactivated

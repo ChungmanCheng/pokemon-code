@@ -2,7 +2,7 @@
     "name": "pokemon-code-2",
     "displayName": "pokemon-code-2",
     "description": "Catch Pokemon in visual code",
-    "version": "0.0.6",
+    "version": "2.0.0",
     "publisher": "chungmancheng",
     "engines": {
         "vscode": "^1.10.0"
@@ -11,14 +11,11 @@
         "Other"
     ],
     "activationEvents": [
-        "onCommand:extension.startPokemonCode"
+        "onStartupFinished"
     ],
     "main": "./extension",
     "contributes": {
         "commands": [{
-            "command": "extension.startPokemonCode",
-            "title": "Pokemon Code - Start"
-        },{
             "command": "extension.showPokemon",
             "title": "Pokemon Code - Pokedex"
         },{
