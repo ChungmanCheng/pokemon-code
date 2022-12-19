@@ -10,8 +10,6 @@ Install Pokemon-Code in VS Code by adding the `pokemon-code` extension.
 
 Catch Pokemon. Use Command Pallate to run the following:
 
-`Pokemon - Start` = Starts Pokemon Code
-
 `Pokemon - Inventory` = Shows you your items
 
 `Pokemon - Pokedex` = Shows you the Pokemon you've caught
@@ -29,4 +27,8 @@ Fixed issue that some version may not save file successfully.
 ### 0.0.6
 
 Fixed "extension start" issue caused by extensionPath error.
+
+### 2.0.0
+
+Pokemon Code will auto start after vscode starts up.
 
