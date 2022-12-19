@@ -182,24 +182,20 @@ function init_tallgrass(){
 // your extension is activated the very first time the command is executed
 function activate(context) {
 
-    // Use the console to output diagnostic information (console.log) and errors (console.error)
-    // This line of code will only be executed once when your extension is activated
+    // extension activates
     console.log('Congratulations, your extension "pokemon-code" is now active!');
-
     init_tallgrass();
-    // Display a message box to the user
     vscode.window.showInformationMessage('Your Pokemon journey has begun!', {});
 
-
+    // listen to "Pokemon Code - Pokedex" command
     var disposable2 = vscode.commands.registerCommand('extension.showPokemon', function () {
-        // The code you place here will be executed every time your command is executed
 
         show_pokemon();
 
     });
 
+    // listen to "Pokemon Code - Inventory" command
     var disposable3 = vscode.commands.registerCommand('extension.showInventory', function () {
-        // The code you place here will be executed every time your command is executed
 
         show_inventory();
 
@@ -213,5 +209,7 @@ exports.activate = activate;
 
 // this method is called when your extension is deactivated
 function deactivate() {
+
 }
+
 exports.deactivate = deactivate;
