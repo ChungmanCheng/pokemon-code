@@ -22,7 +22,28 @@
         },{
             "command": "extension.showInventory",
             "title": "Pokemon Code - Inventory"
-        }]
+        }],
+        "viewsContainers": {
+            "activitybar": [
+            {
+                "id": "package-explorer",
+                "title": "Pokedex",
+                "icon": "imgs/pokeball.png"
+            }
+            ]
+        },
+        "views": {
+        "package-explorer": [
+        {
+            "id": "package-pokedex",
+            "name": "Pokedex"
+        },
+        {
+            "id": "package-inventory",
+            "name": "Inventory"
+        }
+        ]
+        }
     },
     "scripts": {
         "postinstall": "node ./node_modules/vscode/bin/install",
