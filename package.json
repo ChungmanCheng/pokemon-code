@@ -28,17 +28,19 @@
             {
                 "id": "package-explorer",
                 "title": "Pokedex",
-                "icon": "imgs/pokeball.png"
+                "icon": "imgs/pokeball.svg"
             }
             ]
         },
         "views": {
         "package-explorer": [
         {
+            "type": "webview",
             "id": "package-pokedex",
             "name": "Pokedex"
         },
         {
+            "type": "webview",
             "id": "package-inventory",
             "name": "Inventory"
         }
