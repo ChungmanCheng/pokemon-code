@@ -14,7 +14,7 @@
     "activationEvents": [
         "onStartupFinished"
     ],
-    "main": "./extension",
+    "main": "./src/extension",
     "contributes": {
         "commands": [{
             "command": "extension.showPokemon",
@@ -35,12 +35,10 @@
         "views": {
         "package-explorer": [
         {
-            "type": "webview",
             "id": "package-pokedex",
             "name": "Pokedex"
         },
         {
-            "type": "webview",
             "id": "package-inventory",
             "name": "Inventory"
         }

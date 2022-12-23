@@ -1,15 +1,17 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
+
 var vscode = require('vscode');
 var fs = require('fs');
-var savefile = require('./data/savefile.json');
-var pokedex = require('./data/pokedex.json');
+var savefile = require('../data/savefile.json');
+var pokedex = require('../data/pokedex.json');
 var extensionPath = vscode.extensions.getExtension('chungmancheng.pokemon-code-2').extensionPath;
 var items = savefile.items;
 var pokemon_boxes = savefile.pokemon_boxes;
 var shown_pokemon = null;
 var current_razzberry = false;
 var spawn_rarity = 500 // 1 chance out of spawn_rarity to spawn a Pokemon, 2 chances to spawn items. Each 1/spawn_rarity is a change in text-selection position.
+
 
 function save(){
     fs.writeFile(`${extensionPath}/data/savefile.json`, JSON.stringify({'items': items, 'pokemon_boxes': pokemon_boxes}), (err, result) => {
@@ -178,7 +180,6 @@ function init_tallgrass(){
 
 }
 
-// webview for the vscode exploer
 
 
 // this method is called when your extension is activated
@@ -187,6 +188,9 @@ function activate(context) {
 
     // extension activates
     console.log('Congratulations, your extension "pokemon-code" is now active!');
+
+    
+
     init_tallgrass();
     vscode.window.showInformationMessage('Your Pokemon journey has begun!', {});
 
