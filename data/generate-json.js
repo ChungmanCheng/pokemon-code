@@ -22,8 +22,9 @@ var parser = parse({delimiter: ','}, function (err, data) {
     callback();
   })
 })
+
 fs.createReadStream(inputFile).pipe(parser).on('end',function() {
     //do something wiht csvData
     console.log(pokemon);
     fs.writeFile('pokemon.json', JSON.stringify(pokemon));
-});;
+});
