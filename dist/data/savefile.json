@@ -1,9 +1,1 @@
-{
-    "items": [
-        { "Pokeball": 50 },
-        { "Greatball": 10 },
-        { "Ultraball": 5 },
-        { "Razzberry": 5 }
-    ],
-    "pokemon_boxes": {}
-}
+{ "items": [{ "name": "Pokeball", "amount": 51 }, { "name": "Greatball", "amount": 10 }, { "name": "Ultraball", "amount": 8 }, { "name": "Razzberry", "amount": 3 }], "pokemon_boxes": [{ "id": 4, "name": "Charmander", "exp": 62 }, { "id": 4, "name": "Charmander", "exp": 62 }] }
