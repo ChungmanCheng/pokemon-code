@@ -27,6 +27,8 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const vscode = __importStar(require("vscode"));
 const fs = __importStar(require("fs"));
+const InventoryView_1 = require("./InventoryView");
+const PokedexView_1 = require("./PokedexView");
 const savefile = __importStar(require("./data/savefile.json"));
 const pokedex = __importStar(require("./data/pokedex.json"));
 var extensionPath = vscode.extensions.getExtension('chungmancheng.pokemon-code-2')?.extensionPath;
@@ -34,12 +36,17 @@ var items = savefile.items;
 var pokemon_boxes = savefile.pokemon_boxes;
 var shown_pokemon = 0;
 var current_razzberry = false;
-var spawn_rarity = 250; // 1 chance out of spawn_rarity to spawn a Pokemon, 2 chances to spawn items. Each 1/spawn_rarity is a change in text-selection position.
+var spawn_rarity = 300; // 1 chance out of spawn_rarity to spawn a Pokemon, 2 chances to spawn items. Each 1/spawn_rarity is a change in text-selection position.
+var inventoryProvider;
+var pokedexProvider;
 function save() {
     fs.writeFile(`${extensionPath}/src/data/savefile.json`, JSON.stringify({ 'items': items, 'pokemon_boxes': pokemon_boxes }), (err) => {
         if (err)
             throw err;
     });
+    //Update UI 
+    pokedexProvider.refresh();
+    inventoryProvider.refresh();
 }
 function show_pokemon() {
     var pokemon_list = new Array();
@@ -91,7 +98,7 @@ function init_tallgrass() {
         }
         if (catch_num <= pokemon_num) {
             vscode.window.showInformationMessage('You caught the ' + pokedex[shown_pokemon].name + '! Mom would be proud.');
-            pokemon_boxes.push(pokedex[i]);
+            pokemon_boxes.push(pokedex[shown_pokemon]);
             save();
             vscode.window.activeTextEditor?.setDecorations(newDecoration, []);
             shown_pokemon = -1;
@@ -169,17 +176,6 @@ function init_tallgrass() {
                     }
                 });
             }
-            else {
-                vscode.window.showInformationMessage('A wild ' + pokedex[shown_pokemon].name + ' appeared!', {}, ...['Catch']).then(function (chosen) {
-                    if (chosen == "Catch") {
-                        _catch();
-                    }
-                    else {
-                        vscode.window.activeTextEditor?.setDecorations(newDecoration, []);
-                        shown_pokemon = -1;
-                    }
-                });
-            }
             newDecoration = vscode.window.createTextEditorDecorationType({
                 gutterIconSize: 'contain',
                 gutterIconPath: vscode.Uri.parse(extensionPath + '/imgs/sprites/' + (shown_pokemon + 1) + '.png')
@@ -217,9 +213,10 @@ function activate(context) {
     // extension activates
     init_tallgrass();
     vscode.window.showInformationMessage('Your Pokemon journey has begun!', {});
-    // context.subscriptions.push(
-    // 	vscode.window.registerTreeDataProvider("package-inventory", new NodeInventoryProvider() )
-    // );
+    inventoryProvider = new InventoryView_1.NodeInventoryProvider();
+    context.subscriptions.push(vscode.window.registerTreeDataProvider("package-inventory", inventoryProvider));
+    pokedexProvider = new PokedexView_1.NodePokedexProvider();
+    context.subscriptions.push(vscode.window.registerTreeDataProvider("package-pokedex", pokedexProvider));
     // listen to "Pokemon Code - Pokedex" command
     var disposable2 = vscode.commands.registerCommand('extension.showPokemon', function () {
         show_pokemon();

@@ -34,4 +34,4 @@ Fixed "extension start" issue caused by extensionPath error.
 ### 2.0.0
 
 Pokemon Code will auto start after vscode starts up.
-
+Added package explorer for viewing pokemons and inventory.

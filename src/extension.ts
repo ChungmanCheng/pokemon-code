@@ -4,6 +4,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { NodeInventoryProvider } from './InventoryView';
+import { NodePokedexProvider } from './PokedexView';
 
 import * as savefile from './data/savefile.json';
 import * as pokedex from './data/pokedex.json';
@@ -13,7 +14,10 @@ var items = savefile.items;
 var pokemon_boxes: typeof pokedex = savefile.pokemon_boxes;
 var shown_pokemon = 0;
 var current_razzberry = false;
-var spawn_rarity = 250 // 1 chance out of spawn_rarity to spawn a Pokemon, 2 chances to spawn items. Each 1/spawn_rarity is a change in text-selection position.
+var spawn_rarity = 300 // 1 chance out of spawn_rarity to spawn a Pokemon, 2 chances to spawn items. Each 1/spawn_rarity is a change in text-selection position.
+var inventoryProvider: NodeInventoryProvider;
+var pokedexProvider : NodePokedexProvider;
+
 
 function save(){
     
@@ -22,6 +26,11 @@ function save(){
             throw err;
 
     });
+
+    //Update UI 
+    pokedexProvider.refresh();
+    inventoryProvider.refresh();
+
 }
 
 function show_pokemon(){
@@ -89,7 +98,7 @@ function init_tallgrass(){
         if (catch_num <= pokemon_num){
             vscode.window.showInformationMessage('You caught the '+pokedex[shown_pokemon].name+'! Mom would be proud.');
 
-            pokemon_boxes.push( pokedex[i] );
+            pokemon_boxes.push( pokedex[shown_pokemon] );
             save();
             vscode.window.activeTextEditor?.setDecorations(newDecoration, []);
             shown_pokemon = -1;
@@ -208,14 +217,18 @@ function init_tallgrass(){
 function activate(context: vscode.ExtensionContext) {
 
     // extension activates
-
     init_tallgrass();
     vscode.window.showInformationMessage('Your Pokemon journey has begun!', {});
 
+    inventoryProvider = new NodeInventoryProvider();
+    context.subscriptions.push(
+		vscode.window.registerTreeDataProvider("package-inventory", inventoryProvider )
+    );
 
-    // context.subscriptions.push(
-	// 	vscode.window.registerTreeDataProvider("package-inventory", new NodeInventoryProvider() )
-    // );
+    pokedexProvider = new NodePokedexProvider();
+    context.subscriptions.push(
+		vscode.window.registerTreeDataProvider("package-pokedex", pokedexProvider )
+    );
 
     // listen to "Pokemon Code - Pokedex" command
     var disposable2 = vscode.commands.registerCommand('extension.showPokemon', function () {

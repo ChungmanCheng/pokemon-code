@@ -1,1 +1,23 @@
-{"items":[{"name":"Pokeball","amount":51},{"name":"Greatball","amount":11},{"name":"Ultraball","amount":9},{"name":"Razzberry","amount":2}],"pokemon_boxes":[{"id":4,"name":"Charmander","exp":62},{"id":4,"name":"Charmander","exp":62},{"id":4,"name":"Charmander","exp":62}]}
+{
+    "items": [
+        {
+            "name": "Pokeball",
+            "amount": 50
+        },
+        {
+            "name": "Greatball",
+            "amount": 10
+        },
+        {
+            "name": "Ultraball",
+            "amount": 5
+        },
+        {
+            "name": "Razzberry",
+            "amount": 5
+        }
+    ],
+    "pokemon_boxes": [
+        
+    ]
+}

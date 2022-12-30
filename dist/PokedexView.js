@@ -23,19 +23,25 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.NodeInventoryProvider = void 0;
+exports.NodePokedexProvider = void 0;
 const vscode = __importStar(require("vscode"));
+const path = __importStar(require("path"));
 const savefile = __importStar(require("./data/savefile.json"));
-var items = savefile.items;
-class Item extends vscode.TreeItem {
-    constructor(label, collapsibleState) {
+var pokemon_boxes = savefile.pokemon_boxes;
+class Pokemon extends vscode.TreeItem {
+    constructor(label, _id, collapsibleState) {
         super(label, collapsibleState);
         this.label = label;
+        this._id = _id;
         this.collapsibleState = collapsibleState;
+        this.iconPath = {
+            light: path.join(__filename, '..', '..', 'imgs', 'sprites', this._id + '.png'),
+            dark: path.join(__filename, '..', '..', 'imgs', 'sprites', this._id + '.png')
+        };
     }
 }
 ;
-class NodeInventoryProvider {
+class NodePokedexProvider {
     constructor() {
         this._onDidChangeTreeData = new vscode.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -45,8 +51,8 @@ class NodeInventoryProvider {
     }
     getChildren(element) {
         var catch_options = new Array();
-        for (var i = 0; i < items.length; i++) {
-            catch_options.push(new Item(items[i].name + '  x ' + items[i].amount));
+        for (var i = 0; i < pokemon_boxes.length; i++) {
+            catch_options.push(new Pokemon(pokemon_boxes[i].name, pokemon_boxes[i].id));
         }
         return Promise.resolve(catch_options);
     }
@@ -54,6 +60,6 @@ class NodeInventoryProvider {
         this._onDidChangeTreeData.fire();
     }
 }
-exports.NodeInventoryProvider = NodeInventoryProvider;
+exports.NodePokedexProvider = NodePokedexProvider;
 ;
-//# sourceMappingURL=InventoryView.js.map
+//# sourceMappingURL=PokedexView.js.map

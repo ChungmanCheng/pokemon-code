@@ -30,7 +30,7 @@
       "activitybar": [
         {
           "id": "package-explorer",
-          "title": "Pokedex",
+          "title": "Pocket",
           "icon": "imgs/pokeball.svg"
         }
       ]
