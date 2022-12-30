@@ -14,6 +14,9 @@ Catch Pokemon. Use Command Pallate to run the following:
 
 `Pokemon - Pokedex` = Shows you the Pokemon you've caught
 
+## Requirements
+- vscode version 1.73.0 or later
+
 ## Release Notes
 
 ### 0.0.4
