@@ -15,7 +15,8 @@ Catch Pokemon. Use Command Pallate to run the following:
 `Pokemon - Pokedex` = Shows you the Pokemon you've caught
 
 ## Requirements
-- vscode version 1.73.0 or later
+
+You should be at least the age of 11.
 
 ## Release Notes
 
@@ -35,4 +36,3 @@ Fixed issue that some version may not save file successfully.
 ### 0.0.4
 
 The Hack-n-Tell version release.
-

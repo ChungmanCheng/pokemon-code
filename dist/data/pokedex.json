@@ -753,5 +753,10 @@
         "id": 151,
         "name": "Mew",
         "exp": 270
+<<<<<<<< HEAD:dist/data/pokedex.json
     }
 ]
+========
+    } 
+]
+>>>>>>>> master:data/pokedex.json
