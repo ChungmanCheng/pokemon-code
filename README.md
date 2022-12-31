@@ -19,10 +19,6 @@ Catch Pokemon. Use Command Pallate to run the following:
 
 ## Release Notes
 
-### 2.0.1
-
-Fixed minor bugs
-
 ### 2.0.0
 
 Pokemon Code will auto start after vscode starts up.

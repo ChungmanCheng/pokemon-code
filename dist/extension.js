@@ -210,12 +210,15 @@ function init_tallgrass() {
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 function activate(context) {
+    // load model
+    inventoryProvider = new InventoryView_1.NodeInventoryProvider();
+    pokedexProvider = new PokedexView_1.NodePokedexProvider();
+    pokedexProvider.refresh();
+    inventoryProvider.refresh();
     // extension activates
     init_tallgrass();
     vscode.window.showInformationMessage('Your Pokemon journey has begun!', {});
-    inventoryProvider = new InventoryView_1.NodeInventoryProvider();
     context.subscriptions.push(vscode.window.registerTreeDataProvider("package-inventory", inventoryProvider));
-    pokedexProvider = new PokedexView_1.NodePokedexProvider();
     context.subscriptions.push(vscode.window.registerTreeDataProvider("package-pokedex", pokedexProvider));
     // listen to "Pokemon Code - Pokedex" command
     var disposable2 = vscode.commands.registerCommand('extension.showPokemon', function () {
