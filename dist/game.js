@@ -92,7 +92,7 @@ function loadState(value, species, starterId = 1) {
     const wild = restorePokemon(savedEncounter.pokemon);
     if (wild && wild.hp > 0) {
         const mode = savedEncounter.mode;
-        state.encounter = { pokemon: wild, mode: mode === 'catch' || mode === 'manual' ? mode : 'battle', berry: savedEncounter.berry === true };
+        state.encounter = { pokemon: wild, mode: mode === 'catch' || mode === 'battle' ? mode : 'auto', berry: savedEncounter.berry === true };
     }
     if (!state.encounter) {
         boxes.forEach(pokemon => { pokemon.hp = pokemon.maxHp; });
@@ -108,13 +108,6 @@ class PokemonGame {
     }
     get active() {
         return this.state.pokemon_boxes.find(pokemon => pokemon.uid === this.state.activePokemonId) || this.state.pokemon_boxes[0];
-    }
-    selectPokemon(uid) {
-        if (!this.state.pokemon_boxes.some(pokemon => pokemon.uid === uid && pokemon.hp > 0)) {
-            return false;
-        }
-        this.state.activePokemonId = uid;
-        return true;
     }
     itemCount(name) {
         return this.state.items.find(item => item.name === name)?.amount || 0;
@@ -164,24 +157,7 @@ class PokemonGame {
             this.addItem('Pokeball', 2);
             this.log('Coding supplies: received 2 Pokeballs.', result);
         }
-        if (this.state.encounter) {
-            const action = this.state.encounter.mode;
-            if (action === 'battle') {
-                this.battleTurn(result);
-            }
-            if (action === 'catch') {
-                const ball = ['Pokeball', 'Greatball', 'Ultraball'].find(ball => this.itemCount(ball) > 0);
-                if (ball) {
-                    this.catchPokemon(ball, result);
-                }
-                else {
-                    this.state.encounter.mode = 'battle';
-                    this.log('No balls left. Switched to battle mode.', result, true);
-                    this.battleTurn(result);
-                }
-            }
-        }
-        else {
+        if (!this.state.encounter) {
             this.active.hp = this.active.maxHp;
             this.state.encounterProgress++;
             if (this.state.encounterProgress >= Math.max(1, editsPerEncounter)) {
@@ -189,11 +165,50 @@ class PokemonGame {
                 const species = this.species[Math.min(this.species.length - 1, Math.floor(this.random() * this.species.length))];
                 const level = Math.min(100, Math.max(1, this.active.level + Math.floor(this.random() * 5) - 2));
                 const wild = makePokemon(species, level);
+                const partner = [...this.state.pokemon_boxes].sort((a, b) => b.level - a.level)[0];
+                this.state.activePokemonId = partner.uid;
                 this.state.encounter = { pokemon: wild, mode, berry: false };
                 result.spawned = wild.uid;
                 this.log(`A wild ${wild.name} (Lv. ${wild.level}) appeared!`, result, true);
             }
         }
+        return result;
+    }
+    bestBall() {
+        const exp = this.state.encounter?.pokemon.exp || 0;
+        const preferred = exp >= 200 ? 'Ultraball' : exp >= 100 ? 'Greatball' : 'Pokeball';
+        return [preferred, 'Pokeball', 'Greatball', 'Ultraball'].find(ball => this.itemCount(ball) > 0);
+    }
+    wantsToCollect() {
+        const encounter = this.state.encounter;
+        return !!encounter && encounter.mode === 'auto'
+            && !this.state.pokemon_boxes.some(pokemon => pokemon.id === encounter.pokemon.id)
+            && !!this.bestBall();
+    }
+    /** Resolve one background turn; code edits only trigger encounters and award XP. */
+    autoTurn() {
+        const result = this.result();
+        const encounter = this.state.encounter;
+        if (!encounter) {
+            return result;
+        }
+        const shouldCatch = encounter.mode === 'catch'
+            || (this.wantsToCollect() && encounter.pokemon.hp <= encounter.pokemon.maxHp * 0.45);
+        if (shouldCatch) {
+            const ball = this.bestBall();
+            if (ball) {
+                if (!encounter.berry && this.itemCount('Razzberry') > 0) {
+                    this.addItem('Razzberry', -1);
+                    encounter.berry = true;
+                    this.log(`Used a Razzberry to help catch ${encounter.pokemon.name}.`, result);
+                }
+                this.catchPokemon(ball, result);
+                return result;
+            }
+            encounter.mode = 'battle';
+            this.log('No balls left. Switched to battle mode.', result, true);
+        }
+        this.battleTurn(result);
         return result;
     }
     damage(attacker) {
@@ -203,21 +218,14 @@ class PokemonGame {
         this.state.encounter = undefined;
         this.state.pokemon_boxes.forEach(pokemon => { pokemon.hp = pokemon.maxHp; });
     }
-    attack() {
-        const result = this.result();
-        if (this.state.encounter) {
-            this.state.encounter.mode = 'battle';
-            this.battleTurn(result);
-        }
-        return result;
-    }
     battleTurn(result) {
         const encounter = this.state.encounter;
         if (!encounter) {
             return;
         }
         const wild = encounter.pokemon;
-        const damage = this.damage(this.active);
+        // Leave a new species catchable; the next automatic turn handles the ball.
+        const damage = Math.min(this.damage(this.active), wild.hp - (this.wantsToCollect() ? 1 : 0));
         wild.hp = Math.max(0, wild.hp - damage);
         this.log(`${this.active.name} dealt ${damage} damage to ${wild.name}.`, result);
         if (wild.hp === 0) {
@@ -273,7 +281,7 @@ class PokemonGame {
         }
         else {
             this.log(`${wild.name} broke free from the ${ball}.`, result, true);
-            if (encounter.mode === 'battle') {
+            if (encounter.mode !== 'catch') {
                 this.counterattack(result);
             }
         }

@@ -28,26 +28,6 @@
       {
         "command": "pokemonCode.showBattle",
         "title": "Pokemon Code - Battle and Trainer"
-      },
-      {
-        "command": "pokemonCode.selectPokemon",
-        "title": "Pokemon Code - Select Active Pokemon"
-      },
-      {
-        "command": "pokemonCode.battle",
-        "title": "Pokemon Code - Battle / Attack"
-      },
-      {
-        "command": "pokemonCode.catch",
-        "title": "Pokemon Code - Catch Wild Pokemon"
-      },
-      {
-        "command": "pokemonCode.feedBerry",
-        "title": "Pokemon Code - Feed Razzberry"
-      },
-      {
-        "command": "pokemonCode.run",
-        "title": "Pokemon Code - Run from Encounter"
       }
     ],
     "configuration": {
@@ -56,7 +36,7 @@
         "pokemonCode.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Earn XP and progress encounters from code changes."
+          "description": "Enable code rewards and automatic encounters."
         },
         "pokemonCode.trackExternalChanges": {
           "type": "boolean",
@@ -65,14 +45,18 @@
         },
         "pokemonCode.encounterMode": {
           "type": "string",
-          "enum": ["battle", "catch", "manual"],
-          "enumDescriptions": [
-            "Each edit batch advances a battle turn automatically.",
-            "Each edit batch throws an available ball automatically; battle when supplies run out.",
-            "Choose Catch or Battle in the sidebar. XP continues while waiting."
+          "enum": [
+            "auto",
+            "battle",
+            "catch"
           ],
-          "default": "battle",
-          "description": "Default action for new encounters, including unattended agent coding."
+          "enumDescriptions": [
+            "Pokemon battle automatically and collect new species when weakened.",
+            "Automatically battle every encounter.",
+            "Automatically collect every encounter; battle when supplies run out."
+          ],
+          "default": "auto",
+          "description": "Automatic behavior for new encounters. No gameplay input is required."
         },
         "pokemonCode.editsPerEncounter": {
           "type": "integer",
@@ -86,24 +70,37 @@
           "minimum": 500,
           "maximum": 60000,
           "default": 3000,
-          "description": "Combine changes in this time window into one XP reward and battle turn."
+          "description": "Combine code changes in this time window into one XP reward."
         },
         "pokemonCode.excludedDirectories": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": [],
           "description": "Additional directory names to ignore for code rewards. Dependencies, build output, caches, and Git metadata are already ignored."
         },
         "pokemonCode.notifications": {
           "type": "boolean",
           "default": false,
-          "description": "Show encounter and level-up notifications. Progress is always visible in the sidebar, status bar, and output channel."
+          "description": "Show informational encounter and level-up notifications. No decisions are requested."
         },
         "pokemonCode.starter": {
           "type": "string",
-          "enum": ["Bulbasaur", "Charmander", "Squirtle"],
+          "enum": [
+            "Bulbasaur",
+            "Charmander",
+            "Squirtle"
+          ],
           "default": "Bulbasaur",
           "description": "Starter Pokemon for a new journey; existing collections are preserved."
+        },
+        "pokemonCode.turnIntervalMs": {
+          "type": "integer",
+          "minimum": 500,
+          "maximum": 60000,
+          "default": 2000,
+          "description": "Time between automatic encounter turns. Battles continue when typing pauses."
         }
       }
     },
@@ -143,10 +140,10 @@
   },
   "devDependencies": {
     "@types/node": "^16.11.7",
-		"@types/vscode": "1.73.0",
-		"@typescript-eslint/eslint-plugin": "^5.42.0",
-		"@typescript-eslint/parser": "^5.42.0",
-		"eslint": "^8.26.0",
-		"typescript": "^4.8.4"
+    "@types/vscode": "1.73.0",
+    "@typescript-eslint/eslint-plugin": "^5.42.0",
+    "@typescript-eslint/parser": "^5.42.0",
+    "eslint": "^8.26.0",
+    "typescript": "^4.8.4"
   }
 }

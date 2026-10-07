@@ -29,6 +29,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deactivate = exports.activate = void 0;
 const vscode = __importStar(require("vscode"));
 const ActivityTracker_1 = require("./ActivityTracker");
+const AutomaticEncounters_1 = require("./AutomaticEncounters");
 const InventoryView_1 = require("./InventoryView");
 const PokedexView_1 = require("./PokedexView");
 const BattleView_1 = require("./BattleView");
@@ -36,6 +37,7 @@ const game_1 = require("./game");
 const pokedex_json_1 = __importDefault(require("./data/pokedex.json"));
 const storageKey = 'pokemonCode.game.v1';
 let tracker;
+let encounters;
 let pendingSave = Promise.resolve();
 function configuration() {
     return vscode.workspace.getConfiguration('pokemonCode');
@@ -76,7 +78,7 @@ async function activate(context) {
         battleProvider.refresh();
         const wild = game.state.encounter?.pokemon;
         status.text = `$(zap) ${game.active.name} Lv.${game.active.level}${wild ? ` · ${wild.name} ${wild.hp}/${wild.maxHp} HP` : ` · Trainer Lv.${game.state.trainer.level}`}`;
-        status.tooltip = `${(0, game_1.xpProgress)(game.active.level, game.active.experience)}\nClick to open Pokémon Code battles.${trackingOptions().enabled ? '' : '\nCode rewards are paused in settings.'}`;
+        status.tooltip = `${(0, game_1.xpProgress)(game.active.level, game.active.experience)}\nYour Pokémon handles battles and captures automatically.${trackingOptions().enabled ? '' : '\nThe journey is paused in settings.'}`;
     };
     const save = () => {
         const snapshot = JSON.parse(JSON.stringify(game.state));
@@ -94,101 +96,37 @@ async function activate(context) {
             }
         });
         refresh();
+        encounters?.sync();
     };
     const apply = (result) => {
         save();
         result.messages.forEach(message => output.appendLine(message));
-        if (!configuration().get('notifications', false)) {
-            return;
-        }
-        if (result.spawned) {
-            const encounterId = result.spawned;
-            const wild = game.state.encounter?.pokemon;
-            if (!wild) {
-                return;
-            }
-            void vscode.window.showInformationMessage(`A wild ${wild.name} (Lv. ${wild.level}) appeared!`, 'Catch', 'Battle', 'Run').then(choice => {
-                if (game.state.encounter?.pokemon.uid !== encounterId) {
-                    return;
-                }
-                if (choice === 'Catch') {
-                    void vscode.commands.executeCommand('pokemonCode.catch');
-                }
-                if (choice === 'Battle') {
-                    apply(game.attack());
-                }
-                if (choice === 'Run') {
-                    apply(game.run());
-                }
-            });
-        }
-        else if (result.messages.length) {
+        if (configuration().get('notifications', false) && result.messages.length) {
             void vscode.window.showInformationMessage(result.messages.join(' '));
         }
     };
-    const requiresEncounter = () => {
-        if (game.state.encounter) {
-            return true;
-        }
-        void vscode.window.showInformationMessage('Keep editing code to find a wild Pokémon.');
-        return false;
-    };
-    const selectPokemon = async (uid) => {
-        if (!uid) {
-            const choice = await vscode.window.showQuickPick(game.state.pokemon_boxes.map(pokemon => ({
-                label: `${pokemon.name} · Lv. ${pokemon.level}`,
-                description: `HP ${pokemon.hp}/${pokemon.maxHp} · ${(0, game_1.xpProgress)(pokemon.level, pokemon.experience)}${pokemon.uid === game.state.activePokemonId ? ' · Active' : ''}`,
-                uid: pokemon.uid
-            })), { placeHolder: 'Choose your active Pokémon' });
-            uid = choice?.uid;
-        }
-        if (uid && game.selectPokemon(uid)) {
-            save();
-        }
-    };
-    const catchPokemon = async (ball) => {
-        if (!requiresEncounter()) {
-            return;
-        }
-        const encounterId = game.state.encounter?.pokemon.uid;
-        if (!ball) {
-            const available = ['Pokeball', 'Greatball', 'Ultraball'].filter(name => game.itemCount(name) > 0);
-            if (!available.length) {
-                void vscode.window.showInformationMessage('No balls left. Win battles or keep coding to earn more.');
-                return;
-            }
-            const choice = await vscode.window.showQuickPick(available.map(name => ({ label: name, description: `× ${game.itemCount(name)}`, ball: name })), { placeHolder: 'Choose a ball; weaken the wild Pokémon for better odds' });
-            if (!choice) {
-                return;
-            }
-            ball = choice.ball;
-        }
-        if (!['Pokeball', 'Greatball', 'Ultraball'].includes(ball) || game.state.encounter?.pokemon.uid !== encounterId) {
-            return;
-        }
-        apply(game.catch(ball));
-    };
+    encounters = new AutomaticEncounters_1.AutomaticEncounters(() => trackingOptions().enabled && !!game.state.encounter, () => configuration().get('turnIntervalMs', 2000), () => apply(game.autoTurn()));
     tracker = new ActivityTracker_1.ActivityTracker(trackingOptions, batch => {
         output.appendLine(`Code activity: ${batch.files} file(s), ${batch.sources.join(' + ')}.`);
-        const mode = configuration().get('encounterMode', 'battle');
+        const configured = configuration().get('encounterMode', 'auto');
+        const mode = configured === 'catch' || configured === 'battle' ? configured : 'auto';
         apply(game.recordActivity(editsPerEncounter(), mode));
     });
-    context.subscriptions.push(output, status, inventoryProvider, pokedexProvider, battleProvider, tracker, vscode.window.registerTreeDataProvider('package-inventory', inventoryProvider), vscode.window.registerTreeDataProvider('package-pokedex', pokedexProvider), vscode.window.registerTreeDataProvider('package-battle', battleProvider), vscode.commands.registerCommand('extension.showPokemon', () => selectPokemon()), vscode.commands.registerCommand('extension.showInventory', () => vscode.commands.executeCommand('package-inventory.focus')), vscode.commands.registerCommand('pokemonCode.showBattle', () => vscode.commands.executeCommand('package-battle.focus')), vscode.commands.registerCommand('pokemonCode.selectPokemon', selectPokemon), vscode.commands.registerCommand('pokemonCode.battle', () => { if (requiresEncounter()) {
-        apply(game.attack());
-    } }), vscode.commands.registerCommand('pokemonCode.catch', catchPokemon), vscode.commands.registerCommand('pokemonCode.feedBerry', () => { if (requiresEncounter()) {
-        apply(game.feedBerry());
-    } }), vscode.commands.registerCommand('pokemonCode.run', () => apply(game.run())), vscode.workspace.onDidChangeConfiguration(event => {
+    context.subscriptions.push(encounters, tracker, output, status, inventoryProvider, pokedexProvider, battleProvider, vscode.window.registerTreeDataProvider('package-inventory', inventoryProvider), vscode.window.registerTreeDataProvider('package-pokedex', pokedexProvider), vscode.window.registerTreeDataProvider('package-battle', battleProvider), vscode.commands.registerCommand('extension.showPokemon', () => vscode.commands.executeCommand('package-pokedex.focus')), vscode.commands.registerCommand('extension.showInventory', () => vscode.commands.executeCommand('package-inventory.focus')), vscode.commands.registerCommand('pokemonCode.showBattle', () => vscode.commands.executeCommand('package-battle.focus')), vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration('pokemonCode')) {
             refresh();
+            encounters?.sync();
         }
     }));
     save();
     status.show();
-    output.appendLine('Journey ready. Editor edits and workspace file changes earn XP.');
+    output.appendLine('Journey ready. Keep coding; your Pokémon handles encounters automatically.');
     return { getState: () => JSON.parse(JSON.stringify(game.state)) };
 }
 exports.activate = activate;
 function deactivate() {
+    encounters?.dispose();
+    encounters = undefined;
     tracker?.dispose();
     tracker = undefined;
     return pendingSave;

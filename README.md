@@ -1,61 +1,49 @@
 # Pokémon Code
 
-Catch, battle, and level up Pokémon while coding in VS Code. This project is forked from [matthewkremer/pokemon-code](https://github.com/matthewkremer/pokemon-code).
+Your Pokémon trains, battles, and collects new friends while you code. The extension runs in VS Code and rewards both manual and coding-agent edits. This project is forked from [matthewkremer/pokemon-code](https://github.com/matthewkremer/pokemon-code).
 
-## How to play
+## How it works
 
-Open the **Pocket** activity-bar icon. **Battle and Trainer** shows your trainer level, active Pokémon, wild encounter, HP, and recent battle events. **Pokedex** shows your collection; click a Pokémon to train and battle with it. **Inventory** shows your balls and berries; click an item to use it during an encounter. The status bar also shows your active Pokémon and current opponent.
+Open **Pocket** in the activity bar to see your trainer, team, collection, inventory, and recent encounters. The status bar shows your active Pokémon and opponent. Gameplay runs automatically; you keep working.
 
-A new journey starts with a level 5 Bulbasaur. Set `pokemonCode.starter` to `Charmander` or `Squirtle` before the first activation to choose a different starter. Existing collections are imported and kept.
+- Actual code changes earn trainer XP and Pokémon XP. Cursor movement, opening files, and saving unchanged editor content do not earn rewards.
+- Changes within a 3-second window form one edit batch. Each batch grants 8 trainer XP and 10 Pokémon XP, including multi-file agent patches.
+- After 8 exploration batches, a wild Pokémon appears near your partner's level. Your team chooses its battle partner automatically.
+- Encounter turns run every 2 seconds, even when coding pauses. Pokémon handle attacks and capture supplies without asking you to choose actions.
+- New species are weakened and collected automatically. Already-owned species are battled for XP. Pokémon choose balls and use Razzberries to improve capture odds.
+- The team heals after encounters. Trainer level-ups, every tenth coding batch, and battle wins replenish Pokeballs.
 
-- Actual code changes earn trainer XP and active Pokémon XP. Moving the cursor, opening files, and saving unchanged content do not earn rewards.
-- Changes within a 3-second window form one edit batch. Each batch earns 8 trainer XP and 10 Pokémon XP. Large patches and multi-file edits earn one batch reward, so generated change volume does not determine progress.
-- After 8 exploration batches, a wild Pokémon appears at a level near your active Pokémon. The next batches advance the encounter.
-- By default, each batch performs a battle turn. Click **Battle / Attack** to attack immediately. Winning grants bonus XP and Pokeballs.
-- Click **Catch** to choose a ball. Greatballs and Ultraballs have better odds; reducing wild HP and feeding a Razzberry improves the chance. A failed throw consumes its ball, and a berry applies to one throw. During battle, a failed catch allows the opponent to attack.
-- Your team heals after every encounter, including a loss or retreat. Trainer level-ups, every tenth coding batch, and battle wins replenish Pokeballs.
-
-Trainer and Pokémon levels cap at 100. Their XP is separate from the species base experience stored in the original Pokédex data. Each captured Pokémon has its own level, XP, and identity, including duplicate species.
+A new journey starts with a level 5 Bulbasaur. Trainer and Pokémon levels cap at 100. Captured Pokémon have individual levels and XP, including duplicate species.
 
 ## Coding agents
 
-Agent edits use the same rewards and battle rules as human edits. Workspace file creation, modification, and deletion are tracked even when the file is closed and no editor is active. This includes agents running in an editor or terminal, provided they modify files in a folder opened in this VS Code window while the extension is running. Agents editing a separate worktree need that worktree opened in VS Code to earn progress there.
+Agent changes use the same rewards as human edits. Creating, editing, or deleting workspace code files counts even when those files are closed and no editor is active. The workspace must be open in running VS Code; agents working in a separate worktree need that worktree opened there.
 
-Editor changes and disk notifications are deduplicated by content, so typing and then saving does not reward the edit twice. Related changes are batched, and continuous agent streams keep progressing without waiting for the stream to stop. Dependencies, build output, caches, Git metadata, lockfiles, minified assets, and binary files are excluded. External files over 1 MiB are ignored. VS Code's file-watcher exclusions also apply.
-
-Choose the encounter behavior in settings:
-
-```json
-{
-  "pokemonCode.trackExternalChanges": true,
-  "pokemonCode.encounterMode": "battle"
-}
-```
-
-`battle` advances attacks automatically, `catch` automatically throws available balls and falls back to battling when supplies run out, and `manual` keeps awarding XP while waiting for you to choose an action in the sidebar. Automatic modes support unattended agent coding. Popup notifications are off by default; enable `pokemonCode.notifications` for encounter choices and milestones.
+Editor and file-watcher events are deduplicated by content. Related changes form one reward batch, and continuous agent streams keep earning XP. Dependencies, build output, caches, Git metadata, lockfiles, minified assets, binary files, and external files over 1 MiB are ignored. VS Code file-watcher exclusions also apply.
 
 ## Settings
 
+Defaults provide fully automatic gameplay. No configuration or gameplay decisions are needed.
+
 | Setting | Default | Purpose |
 | --- | --- | --- |
-| `pokemonCode.enabled` | `true` | Enable rewards from code changes. |
-| `pokemonCode.trackExternalChanges` | `true` | Count agent and tool changes to workspace files. |
-| `pokemonCode.encounterMode` | `battle` | Behavior for newly spawned encounters: `battle`, `catch`, or `manual`. |
+| `pokemonCode.enabled` | `true` | Enable code rewards and automatic encounters. |
+| `pokemonCode.trackExternalChanges` | `true` | Include workspace changes from agents and tools. |
+| `pokemonCode.encounterMode` | `auto` | Weaken and collect new species; battle known ones. `battle` and `catch` optionally specialize this automatic behavior. |
 | `pokemonCode.editsPerEncounter` | `8` | Exploration batches before an encounter. |
-| `pokemonCode.activityCooldownMs` | `3000` | Duration of an edit batching window, minimum 500 ms. |
+| `pokemonCode.activityCooldownMs` | `3000` | Code activity batching window. |
+| `pokemonCode.turnIntervalMs` | `2000` | Time between automatic encounter turns. |
 | `pokemonCode.excludedDirectories` | `[]` | Additional directory names to ignore. |
-| `pokemonCode.notifications` | `false` | Show encounter and milestone popups. |
-| `pokemonCode.starter` | `Bulbasaur` | Starter for a new journey. |
+| `pokemonCode.notifications` | `false` | Informational milestones, with no decision prompts. |
+| `pokemonCode.starter` | `Bulbasaur` | Starter for a new journey; existing collections are kept. |
 
-Progress and current encounters persist in VS Code extension storage across restarts and extension updates. The first run migrates the legacy `dist/data/savefile.json` collection and inventory. Progress is shared across workspaces in the same VS Code profile. It is not automatically synchronized between computers or separate extension hosts.
+Progress and current encounters persist in VS Code extension storage across restarts and updates. The first run migrates the original `dist/data/savefile.json` collection and inventory. Progress is shared across workspaces in the same VS Code profile and is not synchronized across computers or separate extension hosts.
 
-## Commands
-
-Open the Command Palette and search **Pokemon Code** for Pokedex, Inventory, Battle and Trainer, Select Active Pokemon, Battle / Attack, Catch Wild Pokemon, Feed Razzberry, and Run from Encounter. The **Pokémon Code** output channel records activity sources and milestones.
+The Command Palette has **Pokemon Code - Pokedex**, **Inventory**, and **Battle and Trainer** commands. They open the relevant views. The **Pokémon Code** output channel records coding activity and milestones.
 
 ## Development
 
-Requires Node.js 18 or later for the test runner and VS Code 1.73 or later for the extension.
+Requires Node.js 18 or later for tests and VS Code 1.73 or later for the extension.
 
 ```sh
 npm install
@@ -65,6 +53,6 @@ npm test
 npm run test:integration
 ```
 
-Press **F5** in VS Code to launch the extension development host. Open a code folder in that host and make edits to start playing. `npm run test:integration` launches a real VS Code extension host with a temporary profile and workspace. Set `VSCODE_EXECUTABLE` if VS Code is installed at a custom path. The existing **Launch Tests** debug entry expects a disposable workspace.
+Press **F5** to launch the development host, open a code folder, and edit files. The integration command launches real VS Code with a temporary profile and workspace. Set `VSCODE_EXECUTABLE` for a custom installation path. The **Launch Tests** debug entry expects a disposable workspace.
 
-The test suite covers XP thresholds, legacy save migration, restored encounters, battles, captures, inventory consumption, content deduplication, agent edits to closed files, filters, and event cleanup.
+Tests cover XP, saves, automatic encounters, capture supplies, editor/save deduplication, agent edits to closed files, filters, timer cleanup, and real VS Code events.

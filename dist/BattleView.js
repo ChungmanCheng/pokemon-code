@@ -46,7 +46,7 @@ class BattleProvider {
     getChildren() {
         const { state, active } = this.game;
         const trainer = state.trainer;
-        const team = this.row(`${active.name} · Lv. ${active.level}`, `HP ${active.hp}/${active.maxHp}`, 'pokemonCode.selectPokemon');
+        const team = this.row(`${active.name} · Lv. ${active.level}`, `HP ${active.hp}/${active.maxHp}`);
         team.iconPath = vscode.Uri.joinPath(this.extensionUri, 'imgs', 'sprites', `${active.id}.png`);
         team.tooltip = (0, game_1.xpProgress)(active.level, active.experience);
         const rows = [
@@ -59,11 +59,7 @@ class BattleProvider {
             const wild = encounter.pokemon;
             const row = this.row(`Wild ${wild.name} · Lv. ${wild.level}`, `HP ${wild.hp}/${wild.maxHp}`);
             row.iconPath = vscode.Uri.joinPath(this.extensionUri, 'imgs', 'sprites', `${wild.id}.png`);
-            rows.push(row, this.row('Next code edit', encounter.mode === 'manual' ? 'Waiting for your choice' : encounter.mode === 'catch' ? 'Throw a ball' : 'Battle turn'), this.row('Battle / Attack', 'Attack now; keep coding to continue', 'pokemonCode.battle'), this.row('Catch', 'Choose a ball', 'pokemonCode.catch'));
-            if (!encounter.berry && this.game.itemCount('Razzberry') > 0) {
-                rows.push(this.row('Feed Razzberry', 'Improve catch odds', 'pokemonCode.feedBerry'));
-            }
-            rows.push(this.row('Run', 'Leave this encounter', 'pokemonCode.run'));
+            rows.push(row, this.row('Automatic encounter', encounter.mode === 'catch' ? 'Collecting Pokémon' : 'Battling and collecting while you code'));
         }
         else {
             rows.push(this.row('Exploring', `${Math.min(state.encounterProgress, this.editsPerEncounter())}/${this.editsPerEncounter()} edit batches to next encounter`));

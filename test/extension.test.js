@@ -34,36 +34,36 @@ test('level thresholds and the level cap are consistent', () => {
     assert.equal(levelForExperience(Number.MAX_SAFE_INTEGER), 100);
 });
 
-test('code batches award trainer and active Pokemon XP; manual encounters keep earning XP without fighting', () => {
+test('code batches award trainer and active Pokemon XP; code edits earn XP without manually advancing the background battle', () => {
     const journey = game();
     const startXp = journey.active.experience;
-    journey.recordActivity(2, 'manual');
+    journey.recordActivity(2, 'auto');
     assert.equal(journey.state.encounter, undefined);
-    journey.recordActivity(2, 'manual');
+    journey.recordActivity(2, 'auto');
     assert.ok(journey.state.encounter);
     const hp = journey.state.encounter.pokemon.hp;
-    journey.recordActivity(2, 'manual');
+    journey.recordActivity(2, 'auto');
     assert.equal(journey.state.encounter.pokemon.hp, hp);
     assert.equal(journey.active.experience, startXp + 30);
     assert.equal(journey.state.trainer.experience, 24);
-    journey.recordActivity(2, 'manual');
+    journey.recordActivity(2, 'auto');
     assert.equal(journey.state.trainer.level, 2);
 });
 
-test('coding drives battle turns and a win awards XP, supplies, and recovery', () => {
+test('automatic battle turns award XP, supplies, and recovery without further edits', () => {
     const journey = game();
     journey.recordActivity(1, 'battle');
     const wild = journey.state.encounter.pokemon;
     const startHp = wild.hp;
-    journey.recordActivity(1, 'battle');
+    journey.autoTurn();
     assert.ok(wild.hp < startHp);
     wild.hp = 1;
     const xp = journey.active.experience;
     const balls = journey.itemCount('Pokeball');
-    journey.recordActivity(1, 'battle');
+    journey.autoTurn();
     assert.equal(journey.state.encounter, undefined);
     assert.equal(journey.state.trainer.battlesWon, 1);
-    assert.ok(journey.active.experience > xp + 10);
+    assert.ok(journey.active.experience > xp);
     assert.ok(journey.itemCount('Pokeball') >= balls + 2);
     assert.equal(journey.active.hp, journey.active.maxHp);
 });
@@ -72,7 +72,7 @@ test('losing a battle recovers the team and permits the next encounter', () => {
     const journey = game(() => 0.99);
     journey.recordActivity(1, 'battle');
     journey.active.hp = 1;
-    journey.attack();
+    journey.autoTurn();
     assert.equal(journey.state.encounter, undefined);
     assert.equal(journey.state.trainer.battlesWon, 0);
     assert.equal(journey.active.hp, journey.active.maxHp);
@@ -82,7 +82,7 @@ test('losing a battle recovers the team and permits the next encounter', () => {
 
 test('failed catches consume one ball and one berry boost, never negative supplies', () => {
     const journey = game(() => 0.99);
-    journey.recordActivity(1, 'manual');
+    journey.recordActivity(1, 'catch');
     const berries = journey.itemCount('Razzberry');
     journey.feedBerry();
     journey.feedBerry();
@@ -100,11 +100,11 @@ test('failed catches consume one ball and one berry boost, never negative suppli
 
 test('weakening a wild Pokemon improves catch odds', () => {
     const healthy = game(() => 0.6);
-    healthy.recordActivity(1, 'manual');
+    healthy.recordActivity(1, 'auto');
     healthy.catch('Pokeball');
     assert.ok(healthy.state.encounter);
     const weakened = game(() => 0.6);
-    weakened.recordActivity(1, 'manual');
+    weakened.recordActivity(1, 'auto');
     weakened.state.encounter.pokemon.hp = 1;
     weakened.catch('Pokeball');
     assert.equal(weakened.state.encounter, undefined);
@@ -115,13 +115,12 @@ test('automatic capture works without prompts and catches retain their individua
     const journey = game();
     journey.recordActivity(1, 'catch');
     const wild = journey.state.encounter.pokemon;
-    journey.recordActivity(1, 'catch');
+    journey.autoTurn();
     assert.equal(journey.state.encounter, undefined);
     assert.equal(journey.state.pokemon_boxes[1].uid, wild.uid);
     assert.equal(journey.state.pokemon_boxes[1].level, wild.level);
     assert.equal(journey.state.trainer.pokemonCaught, 1);
-    assert.ok(journey.selectPokemon(wild.uid));
-    assert.equal(journey.active.uid, wild.uid);
+    assert.ok(journey.state.pokemon_boxes.some(pokemon => pokemon.uid === wild.uid));
 });
 
 test('automatic capture falls back to battle when out of balls', () => {
@@ -129,7 +128,7 @@ test('automatic capture falls back to battle when out of balls', () => {
     journey.state.items.forEach(item => { item.amount = 0; });
     journey.recordActivity(1, 'catch');
     const hp = journey.state.encounter.pokemon.hp;
-    journey.recordActivity(1, 'catch');
+    journey.autoTurn();
     assert.equal(journey.state.encounter.mode, 'battle');
     assert.ok(journey.state.encounter.pokemon.hp < hp);
 });
@@ -137,16 +136,16 @@ test('automatic capture falls back to battle when out of balls', () => {
 test('serialized state resumes the same battle and active Pokemon', () => {
     const journey = game();
     journey.recordActivity(1, 'battle');
-    journey.attack();
+    journey.autoTurn();
     const restored = loadState(JSON.parse(JSON.stringify(journey.state)), pokedex);
     assert.deepEqual(restored, journey.state);
 });
 
 test('running clears encounter-only effects before another encounter', () => {
     const journey = game();
-    journey.recordActivity(1, 'manual');
+    journey.recordActivity(1, 'auto');
     journey.feedBerry();
     journey.run();
-    journey.recordActivity(1, 'manual');
+    journey.recordActivity(1, 'auto');
     assert.equal(journey.state.encounter.berry, false);
 });

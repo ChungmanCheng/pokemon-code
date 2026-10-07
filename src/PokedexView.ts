@@ -16,9 +16,8 @@ export class NodePokedexProvider implements vscode.TreeDataProvider<vscode.TreeI
             const active = pokemon.uid === state.activePokemonId;
             row.id = pokemon.uid;
             row.description = `Lv. ${pokemon.level}${active ? ' · Active' : ''}`;
-            row.tooltip = `${pokemon.name}\nLevel ${pokemon.level} · ${xpProgress(pokemon.level, pokemon.experience)}\nHP ${pokemon.hp}/${pokemon.maxHp}\nClick to make this your active Pokémon.`;
+            row.tooltip = `${pokemon.name}\nLevel ${pokemon.level} · ${xpProgress(pokemon.level, pokemon.experience)}\nHP ${pokemon.hp}/${pokemon.maxHp}\nBattle partners are chosen automatically.`;
             row.iconPath = vscode.Uri.joinPath(this.extensionUri, 'imgs', 'sprites', `${pokemon.id}.png`);
-            row.command = { command: 'pokemonCode.selectPokemon', title: 'Select active Pokémon', arguments: [pokemon.uid] };
             return row;
         });
     }

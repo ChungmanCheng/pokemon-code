@@ -16,7 +16,7 @@ exports.run = async function() {
     const folder = vscode.workspace.workspaceFolders?.[0];
     assert.ok(folder, 'Integration tests require a disposable workspace folder.');
     const config = vscode.workspace.getConfiguration('pokemonCode');
-    const settings = ['activityCooldownMs', 'editsPerEncounter', 'encounterMode', 'notifications', 'enabled', 'trackExternalChanges'];
+    const settings = ['activityCooldownMs', 'editsPerEncounter', 'encounterMode', 'turnIntervalMs', 'excludedDirectories', 'notifications', 'enabled', 'trackExternalChanges'];
     const previous = settings.map(key => config.inspect(key)?.workspaceValue);
     const fixture = await fs.mkdtemp(path.join(folder.uri.fsPath, '.pokemon-code-test-'));
     try {
@@ -24,7 +24,9 @@ exports.run = async function() {
         await config.update('trackExternalChanges', true, vscode.ConfigurationTarget.Workspace);
         await config.update('activityCooldownMs', 500, vscode.ConfigurationTarget.Workspace);
         await config.update('editsPerEncounter', 1, vscode.ConfigurationTarget.Workspace);
-        await config.update('encounterMode', 'manual', vscode.ConfigurationTarget.Workspace);
+        await config.update('encounterMode', 'battle', vscode.ConfigurationTarget.Workspace);
+        await config.update('turnIntervalMs', 1000, vscode.ConfigurationTarget.Workspace);
+        await config.update('excludedDirectories', ['.vscode'], vscode.ConfigurationTarget.Workspace);
         await config.update('notifications', false, vscode.ConfigurationTarget.Workspace);
         const extension = vscode.extensions.getExtension('chungmancheng.pokemon-code-2');
         assert.ok(extension);
@@ -36,6 +38,8 @@ exports.run = async function() {
         await fs.writeFile(agentPath, 'export const agentEdit = 1;\n');
         await waitFor(() => api.getState().trainer.editBatches === initialBatches + 1, 'Agent file creation did not earn XP.');
         assert.ok(api.getState().encounter, 'Code activity should spawn an encounter.');
+        await waitFor(() => api.getState().log.some(line => line.includes('damage')), 'The battle did not advance automatically.');
+        assert.equal(api.getState().trainer.editBatches, initialBatches + 1, 'Background turns must not manufacture code XP.');
         await fs.writeFile(agentPath, 'export const agentEdit = 2;\n');
         await waitFor(() => api.getState().trainer.editBatches === initialBatches + 2, 'Agent edit to a closed file did not earn XP.');
 
@@ -54,13 +58,11 @@ exports.run = async function() {
         const snapshot = api.getState();
         snapshot.trainer.editBatches = -1;
         assert.notEqual(api.getState().trainer.editBatches, -1, 'Public state snapshots must not mutate the game.');
-        await vscode.commands.executeCommand('pokemonCode.battle');
-        assert.ok(api.getState().log.some(line => line.includes('damage') || line.includes('Defeated')));
-        await vscode.commands.executeCommand('pokemonCode.run');
-        assert.equal(api.getState().encounter, undefined);
+        await waitFor(() => !api.getState().encounter, 'The automatic battle did not finish without input.');
+        assert.ok(api.getState().log.some(line => line.includes('damage') || line.includes('Defeated') || line.includes('fainted')));
         await vscode.commands.executeCommand('pokemonCode.showBattle');
         await vscode.commands.executeCommand('extension.showInventory');
-        console.log('Pokémon Code integration passed: real agent edits, editor/save deduplication, battles, and sidebar commands.');
+        console.log('Pokémon Code integration passed: real agent edits, editor/save deduplication, automatic battles without further edits, and sidebar commands.');
     } finally {
         await config.update('enabled', false, vscode.ConfigurationTarget.Workspace);
         await fs.rm(fixture, { recursive: true, force: true });
