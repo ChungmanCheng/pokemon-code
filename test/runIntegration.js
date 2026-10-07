@@ -12,11 +12,21 @@ async function run() {
         : process.platform === 'win32'
             ? path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Microsoft VS Code', 'Code.exe') : 'code');
     const repository = path.resolve(__dirname, '..');
+    // Seed a disposable extension copy just below evolution, never touching real saves.
+    const extensionFixture = path.join(root, 'extension');
+    await fs.mkdir(extensionFixture);
+    await fs.copyFile(path.join(repository, 'package.json'), path.join(extensionFixture, 'package.json'));
+    await fs.cp(path.join(repository, 'dist'), path.join(extensionFixture, 'dist'), { recursive: true });
+    // Assets are read-only; a directory link avoids copying thousands of sprites.
+    await fs.symlink(path.join(repository, 'imgs'), path.join(extensionFixture, 'imgs'), process.platform === 'win32' ? 'junction' : 'dir');
+    await fs.writeFile(path.join(extensionFixture, 'dist', 'data', 'savefile.json'), JSON.stringify({
+        pokemon_boxes: [{ id: 1, uid: 'integration-starter', experience: 25 * 15 ** 2 - 5 }]
+    }));
     const child = spawn(executable, [
         `--user-data-dir=${path.join(root, 'profile')}`,
         `--extensions-dir=${path.join(root, 'extensions')}`,
         '--disable-extensions', '--skip-welcome', '--skip-release-notes',
-        `--extensionDevelopmentPath=${repository}`,
+        `--extensionDevelopmentPath=${extensionFixture}`,
         `--extensionTestsPath=${__dirname}`, workspace
     ], { stdio: 'inherit' });
     const exitCode = await new Promise((resolve, reject) => {

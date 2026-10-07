@@ -33,11 +33,20 @@ exports.run = async function() {
         const api = await extension.activate();
         assert.ok(api.getState().pokemon_boxes[0].skills.length, 'Pokemon should have skills without setup.');
         const initialBatches = api.getState().trainer.editBatches;
+        const starter = api.getState().pokemon_boxes[0];
 
         // Exercise real OS writes to an unopened file, just like an external coding agent.
         const agentPath = path.join(fixture, 'agent.ts');
         await fs.writeFile(agentPath, 'export const agentEdit = 1;\n');
         await waitFor(() => api.getState().trainer.editBatches === initialBatches + 1, 'Agent file creation did not earn XP.');
+        if (starter.uid === 'integration-starter') {
+            const evolved = api.getState().pokemon_boxes.find(pokemon => pokemon.uid === starter.uid);
+            assert.equal(starter.id, 1);
+            assert.equal(evolved.id, 2, 'A real agent edit must automatically evolve Bulbasaur.');
+            assert.equal(evolved.level, 16);
+            assert.equal(evolved.experience, starter.experience + 10);
+            assert.ok(api.getState().log.includes('Bulbasaur evolved into Ivysaur!'));
+        }
         assert.ok(api.getState().encounter, 'Code activity should spawn an encounter.');
         await waitFor(() => api.getState().log.some(line => line.includes('damage')), 'The battle did not advance automatically.');
         assert.ok(api.getState().log.some(line => line.includes('used') && line.includes('damage')), 'Pokemon did not choose their own skills.');
@@ -64,7 +73,7 @@ exports.run = async function() {
         assert.ok(api.getState().log.some(line => line.includes('damage') || line.includes('Defeated') || line.includes('fainted')));
         await vscode.commands.executeCommand('pokemonCode.showBattle');
         await vscode.commands.executeCommand('extension.showInventory');
-        console.log('Pokémon Code integration passed: real agent edits, editor/save deduplication, automatic battles without further edits, and sidebar commands.');
+        console.log('Pokémon Code integration passed: automatic evolution from real agent edits, editor/save deduplication, automatic battles without further edits, and sidebar commands.');
     } finally {
         await config.update('enabled', false, vscode.ConfigurationTarget.Workspace);
         await fs.rm(fixture, { recursive: true, force: true });

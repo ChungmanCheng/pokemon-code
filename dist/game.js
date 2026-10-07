@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PokemonGame = exports.loadState = exports.maxHp = exports.xpProgress = exports.levelForExperience = exports.experienceAtLevel = void 0;
 const crypto_1 = require("crypto");
 const skills_1 = require("./skills");
+const evolution_1 = require("./evolution");
 const initialItems = [
     { name: 'Pokeball', amount: 50 },
     { name: 'Greatball', amount: 10 },
@@ -117,6 +118,9 @@ class PokemonGame {
         this.state = state;
         this.species = species;
         this.random = random;
+        // Catch up existing collections without changing a persisted wild encounter.
+        const result = this.result();
+        this.state.pokemon_boxes.forEach(pokemon => this.evolve(pokemon, result));
     }
     get active() {
         return this.state.pokemon_boxes.find(pokemon => pokemon.uid === this.state.activePokemonId) || this.state.pokemon_boxes[0];
@@ -138,25 +142,52 @@ class PokemonGame {
             result.messages.push(message);
         }
     }
-    awardXp(pokemon, amount, result) {
-        const before = pokemon.level;
+    refreshPokemon(pokemon, result) {
         const previousSkills = new Set(pokemon.skills.map(skill => skill.id));
-        pokemon.experience = Math.min(experienceAtLevel(100), pokemon.experience + amount);
-        pokemon.level = levelForExperience(pokemon.experience);
         const oldMax = pokemon.maxHp;
         pokemon.maxHp = maxHp(pokemon, pokemon.level);
-        pokemon.hp = Math.min(pokemon.maxHp, pokemon.hp + pokemon.maxHp - oldMax);
+        // Evolution adds HP capacity while retaining damage and fainted status.
+        pokemon.hp = pokemon.hp === 0 ? 0 : Math.max(1, Math.min(pokemon.maxHp, pokemon.hp + pokemon.maxHp - oldMax));
+        pokemon.skills = (0, skills_1.skillsForPokemon)(pokemon.id, pokemon.level);
+        const learned = pokemon.skills.filter(skill => !previousSkills.has(skill.id));
+        if (learned.length) {
+            this.log(`${pokemon.name} learned ${learned.map(skill => skill.name).join(', ')}!`, result, true);
+        }
+        for (const id of Object.keys(pokemon.skillCooldowns)) {
+            if (!pokemon.skills.some(skill => skill.id === id)) {
+                delete pokemon.skillCooldowns[id];
+            }
+        }
+        if (pokemon.lastSkill && pokemon.lastSkill !== 'Struggle' && !pokemon.skills.some(skill => skill.name === pokemon.lastSkill)) {
+            delete pokemon.lastSkill;
+        }
+    }
+    evolve(pokemon, result) {
+        let evolved = false;
+        let targetId = (0, evolution_1.nextEvolution)(pokemon.id, pokemon.level, pokemon.uid, this.species);
+        while (targetId !== undefined) {
+            const target = this.species.find(entry => entry.id === targetId);
+            const previousName = pokemon.name;
+            pokemon.id = target.id;
+            pokemon.name = target.name;
+            pokemon.exp = target.exp;
+            this.log(`${previousName} evolved into ${pokemon.name}!`, result, true);
+            evolved = true;
+            targetId = (0, evolution_1.nextEvolution)(pokemon.id, pokemon.level, pokemon.uid, this.species);
+        }
+        if (evolved) {
+            this.refreshPokemon(pokemon, result);
+        }
+        return evolved;
+    }
+    awardXp(pokemon, amount, result) {
+        const before = pokemon.level;
+        pokemon.experience = Math.min(experienceAtLevel(100), pokemon.experience + amount);
+        pokemon.level = levelForExperience(pokemon.experience);
         if (pokemon.level > before) {
             this.log(`${pokemon.name} grew to level ${pokemon.level}!`, result, true);
-            pokemon.skills = (0, skills_1.skillsForPokemon)(pokemon.id, pokemon.level);
-            const learned = pokemon.skills.filter(skill => !previousSkills.has(skill.id));
-            if (learned.length) {
-                this.log(`${pokemon.name} learned ${learned.map(skill => skill.name).join(', ')}!`, result, true);
-            }
-            for (const id of Object.keys(pokemon.skillCooldowns)) {
-                if (!pokemon.skills.some(skill => skill.id === id)) {
-                    delete pokemon.skillCooldowns[id];
-                }
+            if (!this.evolve(pokemon, result)) {
+                this.refreshPokemon(pokemon, result);
             }
         }
     }
@@ -332,6 +363,7 @@ class PokemonGame {
             this.awardXp(this.active, 15 + wild.level * 2, result);
             this.awardTrainerXp(20, result);
             this.log(`Caught ${wild.name} (Lv. ${wild.level})!`, result, true);
+            this.evolve(wild, result);
             this.finishEncounter();
         }
         else {
