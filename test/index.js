@@ -31,6 +31,7 @@ exports.run = async function() {
         const extension = vscode.extensions.getExtension('chungmancheng.pokemon-code-2');
         assert.ok(extension);
         const api = await extension.activate();
+        assert.ok(api.getState().pokemon_boxes[0].skills.length, 'Pokemon should have skills without setup.');
         const initialBatches = api.getState().trainer.editBatches;
 
         // Exercise real OS writes to an unopened file, just like an external coding agent.
@@ -39,6 +40,7 @@ exports.run = async function() {
         await waitFor(() => api.getState().trainer.editBatches === initialBatches + 1, 'Agent file creation did not earn XP.');
         assert.ok(api.getState().encounter, 'Code activity should spawn an encounter.');
         await waitFor(() => api.getState().log.some(line => line.includes('damage')), 'The battle did not advance automatically.');
+        assert.ok(api.getState().log.some(line => line.includes('used') && line.includes('damage')), 'Pokemon did not choose their own skills.');
         assert.equal(api.getState().trainer.editBatches, initialBatches + 1, 'Background turns must not manufacture code XP.');
         await fs.writeFile(agentPath, 'export const agentEdit = 2;\n');
         await waitFor(() => api.getState().trainer.editBatches === initialBatches + 2, 'Agent edit to a closed file did not earn XP.');

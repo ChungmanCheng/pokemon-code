@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PokemonGame = exports.loadState = exports.maxHp = exports.xpProgress = exports.levelForExperience = exports.experienceAtLevel = void 0;
 const crypto_1 = require("crypto");
+const skills_1 = require("./skills");
 const initialItems = [
     { name: 'Pokeball', amount: 50 },
     { name: 'Greatball', amount: 10 },
@@ -30,7 +31,8 @@ exports.maxHp = maxHp;
 function makePokemon(species, level) {
     return {
         ...species, uid: (0, crypto_1.randomUUID)(), level, experience: experienceAtLevel(level),
-        hp: maxHp(species, level), maxHp: maxHp(species, level)
+        hp: maxHp(species, level), maxHp: maxHp(species, level),
+        skills: (0, skills_1.skillsForPokemon)(species.id, level), skillCooldowns: {}
     };
 }
 function integer(value, fallback, max = Number.MAX_SAFE_INTEGER) {
@@ -58,6 +60,16 @@ function loadState(value, species, starterId = 1) {
         usedIds.add(pokemon.uid);
         pokemon.experience = experience;
         pokemon.hp = integer(data.hp, pokemon.maxHp, pokemon.maxHp);
+        const cooldowns = record(data.skillCooldowns);
+        pokemon.skills.forEach(skill => {
+            const remaining = integer(cooldowns[skill.id], 0, skill.cooldown + 1);
+            if (remaining > 0) {
+                pokemon.skillCooldowns[skill.id] = remaining;
+            }
+        });
+        if (typeof data.lastSkill === 'string' && (data.lastSkill === 'Struggle' || pokemon.skills.some(skill => skill.name === data.lastSkill))) {
+            pokemon.lastSkill = data.lastSkill;
+        }
         return pokemon;
     };
     const boxes = Array.isArray(raw.pokemon_boxes)
@@ -128,6 +140,7 @@ class PokemonGame {
     }
     awardXp(pokemon, amount, result) {
         const before = pokemon.level;
+        const previousSkills = new Set(pokemon.skills.map(skill => skill.id));
         pokemon.experience = Math.min(experienceAtLevel(100), pokemon.experience + amount);
         pokemon.level = levelForExperience(pokemon.experience);
         const oldMax = pokemon.maxHp;
@@ -135,6 +148,16 @@ class PokemonGame {
         pokemon.hp = Math.min(pokemon.maxHp, pokemon.hp + pokemon.maxHp - oldMax);
         if (pokemon.level > before) {
             this.log(`${pokemon.name} grew to level ${pokemon.level}!`, result, true);
+            pokemon.skills = (0, skills_1.skillsForPokemon)(pokemon.id, pokemon.level);
+            const learned = pokemon.skills.filter(skill => !previousSkills.has(skill.id));
+            if (learned.length) {
+                this.log(`${pokemon.name} learned ${learned.map(skill => skill.name).join(', ')}!`, result, true);
+            }
+            for (const id of Object.keys(pokemon.skillCooldowns)) {
+                if (!pokemon.skills.some(skill => skill.id === id)) {
+                    delete pokemon.skillCooldowns[id];
+                }
+            }
         }
     }
     awardTrainerXp(amount, result) {
@@ -165,8 +188,7 @@ class PokemonGame {
                 const species = this.species[Math.min(this.species.length - 1, Math.floor(this.random() * this.species.length))];
                 const level = Math.min(100, Math.max(1, this.active.level + Math.floor(this.random() * 5) - 2));
                 const wild = makePokemon(species, level);
-                const partner = [...this.state.pokemon_boxes].sort((a, b) => b.level - a.level)[0];
-                this.state.activePokemonId = partner.uid;
+                this.choosePartner(wild);
                 this.state.encounter = { pokemon: wild, mode, berry: false };
                 result.spawned = wild.uid;
                 this.log(`A wild ${wild.name} (Lv. ${wild.level}) appeared!`, result, true);
@@ -211,12 +233,43 @@ class PokemonGame {
         this.battleTurn(result);
         return result;
     }
-    damage(attacker) {
-        return Math.max(1, Math.floor((5 + attacker.level * 2 + attacker.exp / 40) * (0.85 + this.random() * 0.3)));
+    choosePartner(wild) {
+        const score = (pokemon) => {
+            const offense = (0, skills_1.skillPower)((0, skills_1.chooseSkill)(pokemon, wild.id), pokemon.id, wild.id) * (5 + pokemon.level * 2 + pokemon.exp / 40);
+            const threat = (0, skills_1.skillPower)((0, skills_1.chooseSkill)(wild, pokemon.id), wild.id, pokemon.id) / pokemon.maxHp;
+            return offense / (1 + threat);
+        };
+        const partner = [...this.state.pokemon_boxes].filter(pokemon => pokemon.hp > 0).sort((a, b) => score(b) - score(a))[0];
+        if (partner) {
+            this.state.activePokemonId = partner.uid;
+            delete partner.lastSkill;
+        }
+    }
+    damage(attacker, defender) {
+        for (const id of Object.keys(attacker.skillCooldowns)) {
+            if (attacker.skillCooldowns[id] <= 1) {
+                delete attacker.skillCooldowns[id];
+            }
+            else {
+                attacker.skillCooldowns[id]--;
+            }
+        }
+        const skill = (0, skills_1.chooseSkill)(attacker, defender.id);
+        if (skill.cooldown) {
+            attacker.skillCooldowns[skill.id] = skill.cooldown + 1;
+        }
+        attacker.lastSkill = skill.name;
+        const amount = Math.max(1, Math.floor((5 + attacker.level * 2 + attacker.exp / 40)
+            * (0, skills_1.skillPower)(skill, attacker.id, defender.id) / 40 * (0.85 + this.random() * 0.3)));
+        return { amount, skill };
+    }
+    describeSkill(attacker, defender, skill, damage) {
+        const effectiveness = skill.id === 'struggle' ? 1 : (0, skills_1.typeEffectiveness)(skill.type, defender.id);
+        return `${attacker.name} used ${skill.name} for ${damage} damage to ${defender.name}.${effectiveness > 1 ? ' Super effective!' : effectiveness < 1 ? ' Not very effective.' : ''}`;
     }
     finishEncounter() {
         this.state.encounter = undefined;
-        this.state.pokemon_boxes.forEach(pokemon => { pokemon.hp = pokemon.maxHp; });
+        this.state.pokemon_boxes.forEach(pokemon => { pokemon.hp = pokemon.maxHp; pokemon.skillCooldowns = {}; });
     }
     battleTurn(result) {
         const encounter = this.state.encounter;
@@ -225,9 +278,10 @@ class PokemonGame {
         }
         const wild = encounter.pokemon;
         // Leave a new species catchable; the next automatic turn handles the ball.
-        const damage = Math.min(this.damage(this.active), wild.hp - (this.wantsToCollect() ? 1 : 0));
+        const attack = this.damage(this.active, wild);
+        const damage = Math.min(attack.amount, wild.hp - (this.wantsToCollect() ? 1 : 0));
         wild.hp = Math.max(0, wild.hp - damage);
-        this.log(`${this.active.name} dealt ${damage} damage to ${wild.name}.`, result);
+        this.log(this.describeSkill(this.active, wild, attack.skill, damage), result);
         if (wild.hp === 0) {
             const xp = Math.floor(wild.exp / 2) + wild.level * 5;
             this.state.trainer.battlesWon++;
@@ -246,9 +300,10 @@ class PokemonGame {
         if (!encounter) {
             return;
         }
-        const damage = this.damage(encounter.pokemon);
+        const attack = this.damage(encounter.pokemon, this.active);
+        const damage = attack.amount;
         this.active.hp = Math.max(0, this.active.hp - damage);
-        this.log(`${encounter.pokemon.name} dealt ${damage} damage to ${this.active.name}.`, result);
+        this.log(this.describeSkill(encounter.pokemon, this.active, attack.skill, damage), result);
         if (this.active.hp === 0) {
             this.log(`${this.active.name} fainted. Your team recovered; keep coding to explore again.`, result, true);
             this.finishEncounter();

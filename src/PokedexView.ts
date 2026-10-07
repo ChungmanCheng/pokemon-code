@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { GameState, xpProgress } from './game';
+import { pokemonTypes } from './skills';
 
 export class NodePokedexProvider implements vscode.TreeDataProvider<vscode.TreeItem>, vscode.Disposable {
     private readonly emitter = new vscode.EventEmitter<void>();
@@ -16,7 +17,7 @@ export class NodePokedexProvider implements vscode.TreeDataProvider<vscode.TreeI
             const active = pokemon.uid === state.activePokemonId;
             row.id = pokemon.uid;
             row.description = `Lv. ${pokemon.level}${active ? ' · Active' : ''}`;
-            row.tooltip = `${pokemon.name}\nLevel ${pokemon.level} · ${xpProgress(pokemon.level, pokemon.experience)}\nHP ${pokemon.hp}/${pokemon.maxHp}\nBattle partners are chosen automatically.`;
+            row.tooltip = `${pokemon.name} · ${pokemonTypes(pokemon.id).join(' / ')}\nLevel ${pokemon.level} · ${xpProgress(pokemon.level, pokemon.experience)}\nHP ${pokemon.hp}/${pokemon.maxHp}\nSkills: ${pokemon.skills.map(skill => skill.name).join(', ')}\nBattle partners and skills are chosen automatically.`;
             row.iconPath = vscode.Uri.joinPath(this.extensionUri, 'imgs', 'sprites', `${pokemon.id}.png`);
             return row;
         });

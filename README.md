@@ -10,6 +10,7 @@ Open **Pocket** in the activity bar to see your trainer, team, collection, inven
 - Changes within a 3-second window form one edit batch. Each batch grants 8 trainer XP and 10 Pokémon XP, including multi-file agent patches.
 - After 8 exploration batches, a wild Pokémon appears near your partner's level. Your team chooses its battle partner automatically.
 - Encounter turns run every 2 seconds, even when coding pauses. Pokémon handle attacks and capture supplies without asking you to choose actions.
+- Pokémon learn skills as they level up and choose their own moves based on type matchups and cooldowns. Stronger skills unlock at levels 5, 12, and 24. Your team automatically selects a suitable partner for each opponent.
 - New species are weakened and collected automatically. Already-owned species are battled for XP. Pokémon choose balls and use Razzberries to improve capture odds.
 - The team heals after encounters. Trainer level-ups, every tenth coding batch, and battle wins replenish Pokeballs.
 
@@ -56,3 +57,5 @@ npm run test:integration
 Press **F5** to launch the development host, open a code folder, and edit files. The integration command launches real VS Code with a temporary profile and workspace. Set `VSCODE_EXECUTABLE` for a custom installation path. The **Launch Tests** debug entry expects a disposable workspace.
 
 Tests cover XP, saves, automatic encounters, capture supplies, editor/save deduplication, agent edits to closed files, filters, timer cleanup, and real VS Code events.
+
+Pokémon types and the type-effectiveness chart are bundled from [PokéAPI's dataset](https://github.com/PokeAPI/pokeapi/tree/master/data/v2/csv). Skill powers, unlock levels, and learnsets are simplified for this extension. Gameplay needs no network requests.

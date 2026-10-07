@@ -100,11 +100,11 @@ test('failed catches consume one ball and one berry boost, never negative suppli
 
 test('weakening a wild Pokemon improves catch odds', () => {
     const healthy = game(() => 0.6);
-    healthy.recordActivity(1, 'auto');
+    healthy.recordActivity(1, 'catch');
     healthy.catch('Pokeball');
     assert.ok(healthy.state.encounter);
     const weakened = game(() => 0.6);
-    weakened.recordActivity(1, 'auto');
+    weakened.recordActivity(1, 'catch');
     weakened.state.encounter.pokemon.hp = 1;
     weakened.catch('Pokeball');
     assert.equal(weakened.state.encounter, undefined);

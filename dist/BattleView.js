@@ -26,6 +26,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BattleProvider = void 0;
 const vscode = __importStar(require("vscode"));
 const game_1 = require("./game");
+const skills_1 = require("./skills");
 class BattleProvider {
     constructor(game, extensionUri, editsPerEncounter) {
         this.game = game;
@@ -48,10 +49,13 @@ class BattleProvider {
         const trainer = state.trainer;
         const team = this.row(`${active.name} · Lv. ${active.level}`, `HP ${active.hp}/${active.maxHp}`);
         team.iconPath = vscode.Uri.joinPath(this.extensionUri, 'imgs', 'sprites', `${active.id}.png`);
-        team.tooltip = (0, game_1.xpProgress)(active.level, active.experience);
+        team.tooltip = `${(0, skills_1.pokemonTypes)(active.id).join(' / ')}\n${(0, game_1.xpProgress)(active.level, active.experience)}\nSkills: ${active.skills.map(skill => skill.name).join(', ')}`;
+        const skills = this.row('Skills', active.skills.map(skill => skill.name).join(' · '));
+        skills.tooltip = active.skills.map(skill => `${skill.name} · ${skill.type} · power ${skill.power}${skill.cooldown ? ` · cooldown ${skill.cooldown} turns` : ''}`).join('\n');
         const rows = [
             this.row(`Trainer · Lv. ${trainer.level}`, (0, game_1.xpProgress)(trainer.level, trainer.experience)),
             team,
+            skills,
             this.row('Journey', `${trainer.editBatches} edit batches · ${trainer.battlesWon} wins · ${trainer.pokemonCaught} catches`)
         ];
         const encounter = state.encounter;
@@ -59,6 +63,7 @@ class BattleProvider {
             const wild = encounter.pokemon;
             const row = this.row(`Wild ${wild.name} · Lv. ${wild.level}`, `HP ${wild.hp}/${wild.maxHp}`);
             row.iconPath = vscode.Uri.joinPath(this.extensionUri, 'imgs', 'sprites', `${wild.id}.png`);
+            row.tooltip = `${(0, skills_1.pokemonTypes)(wild.id).join(' / ')}\nSkills: ${wild.skills.map(skill => skill.name).join(', ')}`;
             rows.push(row, this.row('Automatic encounter', encounter.mode === 'catch' ? 'Collecting Pokémon' : 'Battling and collecting while you code'));
         }
         else {

@@ -26,6 +26,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.NodePokedexProvider = void 0;
 const vscode = __importStar(require("vscode"));
 const game_1 = require("./game");
+const skills_1 = require("./skills");
 class NodePokedexProvider {
     constructor(state, extensionUri) {
         this.state = state;
@@ -41,7 +42,7 @@ class NodePokedexProvider {
             const active = pokemon.uid === state.activePokemonId;
             row.id = pokemon.uid;
             row.description = `Lv. ${pokemon.level}${active ? ' · Active' : ''}`;
-            row.tooltip = `${pokemon.name}\nLevel ${pokemon.level} · ${(0, game_1.xpProgress)(pokemon.level, pokemon.experience)}\nHP ${pokemon.hp}/${pokemon.maxHp}\nBattle partners are chosen automatically.`;
+            row.tooltip = `${pokemon.name} · ${(0, skills_1.pokemonTypes)(pokemon.id).join(' / ')}\nLevel ${pokemon.level} · ${(0, game_1.xpProgress)(pokemon.level, pokemon.experience)}\nHP ${pokemon.hp}/${pokemon.maxHp}\nSkills: ${pokemon.skills.map(skill => skill.name).join(', ')}\nBattle partners and skills are chosen automatically.`;
             row.iconPath = vscode.Uri.joinPath(this.extensionUri, 'imgs', 'sprites', `${pokemon.id}.png`);
             return row;
         });
