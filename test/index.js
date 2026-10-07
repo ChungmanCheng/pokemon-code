@@ -1,22 +1,71 @@
-//
-// PLEASE DO NOT MODIFY / DELETE UNLESS YOU KNOW WHAT YOU ARE DOING
-//
-// This file is providing the test runner to use when running extension tests.
-// By default the test runner in use is Mocha based.
-//
-// You can provide your own test runner if you want to override it by exporting
-// a function run(testRoot: string, clb: (error:Error) => void) that the extension
-// host can call to run the tests. The test runner is expected to use console.log
-// to report the results back to the caller. When the tests are finished, return
-// a possible error to the callback or null if none.
+const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const vscode = require('vscode');
 
-var testRunner = require('vscode/lib/testrunner');
+async function waitFor(check, message) {
+    const deadline = Date.now() + 10000;
+    while (Date.now() < deadline) {
+        if (check()) { return; }
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    throw new Error(message);
+}
 
-// You can directly control Mocha options by uncommenting the following lines
-// See https://github.com/mochajs/mocha/wiki/Using-mocha-programmatically#set-options for more info
-testRunner.configure({
-    ui: 'tdd', 		// the TDD UI is being used in extension.test.js (suite, test, etc.)
-    useColors: true // colored output from test results
-});
+exports.run = async function() {
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(folder, 'Integration tests require a disposable workspace folder.');
+    const config = vscode.workspace.getConfiguration('pokemonCode');
+    const settings = ['activityCooldownMs', 'editsPerEncounter', 'encounterMode', 'notifications', 'enabled', 'trackExternalChanges'];
+    const previous = settings.map(key => config.inspect(key)?.workspaceValue);
+    const fixture = await fs.mkdtemp(path.join(folder.uri.fsPath, '.pokemon-code-test-'));
+    try {
+        await config.update('enabled', true, vscode.ConfigurationTarget.Workspace);
+        await config.update('trackExternalChanges', true, vscode.ConfigurationTarget.Workspace);
+        await config.update('activityCooldownMs', 500, vscode.ConfigurationTarget.Workspace);
+        await config.update('editsPerEncounter', 1, vscode.ConfigurationTarget.Workspace);
+        await config.update('encounterMode', 'manual', vscode.ConfigurationTarget.Workspace);
+        await config.update('notifications', false, vscode.ConfigurationTarget.Workspace);
+        const extension = vscode.extensions.getExtension('chungmancheng.pokemon-code-2');
+        assert.ok(extension);
+        const api = await extension.activate();
+        const initialBatches = api.getState().trainer.editBatches;
 
-module.exports = testRunner;
+        // Exercise real OS writes to an unopened file, just like an external coding agent.
+        const agentPath = path.join(fixture, 'agent.ts');
+        await fs.writeFile(agentPath, 'export const agentEdit = 1;\n');
+        await waitFor(() => api.getState().trainer.editBatches === initialBatches + 1, 'Agent file creation did not earn XP.');
+        assert.ok(api.getState().encounter, 'Code activity should spawn an encounter.');
+        await fs.writeFile(agentPath, 'export const agentEdit = 2;\n');
+        await waitFor(() => api.getState().trainer.editBatches === initialBatches + 2, 'Agent edit to a closed file did not earn XP.');
+
+        // Opening is neutral; editing then saving produces one reward through both APIs.
+        const document = await vscode.workspace.openTextDocument(agentPath);
+        await vscode.window.showTextDocument(document);
+        const beforeEditorEdit = api.getState().trainer.editBatches;
+        const edit = new vscode.WorkspaceEdit();
+        edit.insert(document.uri, new vscode.Position(0, 0), '// Human edit\n');
+        assert.ok(await vscode.workspace.applyEdit(edit));
+        await document.save();
+        await waitFor(() => api.getState().trainer.editBatches === beforeEditorEdit + 1, 'Editor edit did not earn XP.');
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        assert.equal(api.getState().trainer.editBatches, beforeEditorEdit + 1, 'Save or watcher double-counted an edit.');
+
+        const snapshot = api.getState();
+        snapshot.trainer.editBatches = -1;
+        assert.notEqual(api.getState().trainer.editBatches, -1, 'Public state snapshots must not mutate the game.');
+        await vscode.commands.executeCommand('pokemonCode.battle');
+        assert.ok(api.getState().log.some(line => line.includes('damage') || line.includes('Defeated')));
+        await vscode.commands.executeCommand('pokemonCode.run');
+        assert.equal(api.getState().encounter, undefined);
+        await vscode.commands.executeCommand('pokemonCode.showBattle');
+        await vscode.commands.executeCommand('extension.showInventory');
+        console.log('Pokémon Code integration passed: real agent edits, editor/save deduplication, battles, and sidebar commands.');
+    } finally {
+        await config.update('enabled', false, vscode.ConfigurationTarget.Workspace);
+        await fs.rm(fixture, { recursive: true, force: true });
+        for (let index = 0; index < settings.length; index++) {
+            await config.update(settings[index], previous[index], vscode.ConfigurationTarget.Workspace);
+        }
+    }
+};

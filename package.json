@@ -1,7 +1,7 @@
 {
   "name": "pokemon-code-2",
   "displayName": "pokemon-code-2",
-  "description": "Catch Pokemon in visual code",
+  "description": "Catch, battle, and level up Pokemon while you or your coding agent edit code",
   "version": "2.0.2",
   "icon": "imgs/pokeball.png",
   "publisher": "chungmancheng",
@@ -24,8 +24,89 @@
       {
         "command": "extension.showInventory",
         "title": "Pokemon Code - Inventory"
+      },
+      {
+        "command": "pokemonCode.showBattle",
+        "title": "Pokemon Code - Battle and Trainer"
+      },
+      {
+        "command": "pokemonCode.selectPokemon",
+        "title": "Pokemon Code - Select Active Pokemon"
+      },
+      {
+        "command": "pokemonCode.battle",
+        "title": "Pokemon Code - Battle / Attack"
+      },
+      {
+        "command": "pokemonCode.catch",
+        "title": "Pokemon Code - Catch Wild Pokemon"
+      },
+      {
+        "command": "pokemonCode.feedBerry",
+        "title": "Pokemon Code - Feed Razzberry"
+      },
+      {
+        "command": "pokemonCode.run",
+        "title": "Pokemon Code - Run from Encounter"
       }
     ],
+    "configuration": {
+      "title": "Pokemon Code",
+      "properties": {
+        "pokemonCode.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Earn XP and progress encounters from code changes."
+        },
+        "pokemonCode.trackExternalChanges": {
+          "type": "boolean",
+          "default": true,
+          "description": "Count workspace files created, edited, or deleted on disk by coding agents and other tools."
+        },
+        "pokemonCode.encounterMode": {
+          "type": "string",
+          "enum": ["battle", "catch", "manual"],
+          "enumDescriptions": [
+            "Each edit batch advances a battle turn automatically.",
+            "Each edit batch throws an available ball automatically; battle when supplies run out.",
+            "Choose Catch or Battle in the sidebar. XP continues while waiting."
+          ],
+          "default": "battle",
+          "description": "Default action for new encounters, including unattended agent coding."
+        },
+        "pokemonCode.editsPerEncounter": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 8,
+          "description": "Number of edit batches while exploring before a wild Pokemon appears."
+        },
+        "pokemonCode.activityCooldownMs": {
+          "type": "integer",
+          "minimum": 500,
+          "maximum": 60000,
+          "default": 3000,
+          "description": "Combine changes in this time window into one XP reward and battle turn."
+        },
+        "pokemonCode.excludedDirectories": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Additional directory names to ignore for code rewards. Dependencies, build output, caches, and Git metadata are already ignored."
+        },
+        "pokemonCode.notifications": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show encounter and level-up notifications. Progress is always visible in the sidebar, status bar, and output channel."
+        },
+        "pokemonCode.starter": {
+          "type": "string",
+          "enum": ["Bulbasaur", "Charmander", "Squirtle"],
+          "default": "Bulbasaur",
+          "description": "Starter Pokemon for a new journey; existing collections are preserved."
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {
@@ -37,6 +118,10 @@
     },
     "views": {
       "package-explorer": [
+        {
+          "id": "package-battle",
+          "name": "Battle and Trainer"
+        },
         {
           "id": "package-pokedex",
           "name": "Pokedex"
@@ -52,19 +137,16 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint \"src/**/*.ts\""
+    "lint": "eslint \"src/**/*.ts\" --max-warnings 0",
+    "test": "npm run compile && node --test test/*.test.js",
+    "test:integration": "npm run compile && node test/runIntegration.js"
   },
   "devDependencies": {
-    "@types/mocha": "^2.2.32",
     "@types/node": "^16.11.7",
-		"@types/rimraf": "^2.0.2",
-		"@types/vscode": "^1.73.0",
+		"@types/vscode": "1.73.0",
 		"@typescript-eslint/eslint-plugin": "^5.42.0",
 		"@typescript-eslint/parser": "^5.42.0",
 		"eslint": "^8.26.0",
 		"typescript": "^4.8.4"
-  },
-  "dependencies": {
-    "node-fetch": "^2.6.1"
   }
 }

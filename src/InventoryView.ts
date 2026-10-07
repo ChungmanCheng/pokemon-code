@@ -1,49 +1,30 @@
-
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as savefile from './data/savefile.json';
+import { GameState } from './game';
 
-var items = savefile.items;
+export class NodeInventoryProvider implements vscode.TreeDataProvider<vscode.TreeItem>, vscode.Disposable {
+    private readonly emitter = new vscode.EventEmitter<void>();
+    readonly onDidChangeTreeData = this.emitter.event;
 
+    constructor(private readonly state: () => GameState) {}
 
-class Item extends vscode.TreeItem{
+    getTreeItem(element: vscode.TreeItem): vscode.TreeItem { return element; }
 
-    constructor(
-        public readonly label: string,
-        public readonly collapsibleState?: vscode.TreeItemCollapsibleState
-      ) {
-        super(label, collapsibleState);
-      }
-
-};
-
-export class NodeInventoryProvider implements vscode.TreeDataProvider<Item> {
-
-    constructor(  ) {
-
-    }
-    
-    getTreeItem(element: Item): vscode.TreeItem {
-        return element;
-    }
-
-    getChildren(element?: Item | undefined): vscode.ProviderResult<Item[]> {
-
-        var catch_options: Array<Item> = new Array<Item>();
-    
-        for (var i = 0; i < items.length; i++){
-            catch_options.push( new Item(items[i].name + '  x ' + items[i].amount) );
-        }
-
-        return Promise.resolve(catch_options);
+    getChildren(): vscode.TreeItem[] {
+        return this.state().items.map(item => {
+            const row = new vscode.TreeItem(item.name);
+            row.description = `× ${item.amount}`;
+            row.iconPath = new vscode.ThemeIcon(item.name === 'Razzberry' ? 'gift' : 'circle-large-outline');
+            row.tooltip = item.name === 'Razzberry' ? 'Improves your next catch attempt.' : 'Use to catch the current wild Pokémon.';
+            if (item.amount > 0 && this.state().encounter) {
+                row.command = {
+                    command: item.name === 'Razzberry' ? 'pokemonCode.feedBerry' : 'pokemonCode.catch',
+                    title: 'Use item', arguments: item.name === 'Razzberry' ? [] : [item.name]
+                };
+            }
+            return row;
+        });
     }
 
-    private _onDidChangeTreeData: vscode.EventEmitter<Item | undefined | null | void> = new vscode.EventEmitter<Item | undefined | null | void>();
-    
-    readonly onDidChangeTreeData: vscode.Event<Item | undefined | null | void> = this._onDidChangeTreeData.event;
-
-    refresh(): void {
-        this._onDidChangeTreeData.fire();
-    }
-
-};
+    refresh(): void { this.emitter.fire(); }
+    dispose(): void { this.emitter.dispose(); }
+}

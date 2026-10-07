@@ -5,7 +5,11 @@
         "es6": true,
         "node": true
     },
+    "parser": "@typescript-eslint/parser",
+    "plugins": ["@typescript-eslint"],
+    "extends": ["eslint:recommended"],
     "parserOptions": {
+        "ecmaVersion": 2020,
         "ecmaFeatures": {
             "jsx": true
         },
@@ -14,9 +18,10 @@
     "rules": {
         "no-const-assign": "warn",
         "no-this-before-super": "warn",
-        "no-undef": "warn",
+        "no-undef": "off",
         "no-unreachable": "warn",
-        "no-unused-vars": "warn",
+        "no-unused-vars": "off",
+        "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
         "constructor-super": "warn",
         "valid-typeof": "warn"
     }

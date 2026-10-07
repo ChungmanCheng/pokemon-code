@@ -25,35 +25,30 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NodeInventoryProvider = void 0;
 const vscode = __importStar(require("vscode"));
-const savefile = __importStar(require("./data/savefile.json"));
-var items = savefile.items;
-class Item extends vscode.TreeItem {
-    constructor(label, collapsibleState) {
-        super(label, collapsibleState);
-        this.label = label;
-        this.collapsibleState = collapsibleState;
-    }
-}
-;
 class NodeInventoryProvider {
-    constructor() {
-        this._onDidChangeTreeData = new vscode.EventEmitter();
-        this.onDidChangeTreeData = this._onDidChangeTreeData.event;
+    constructor(state) {
+        this.state = state;
+        this.emitter = new vscode.EventEmitter();
+        this.onDidChangeTreeData = this.emitter.event;
     }
-    getTreeItem(element) {
-        return element;
+    getTreeItem(element) { return element; }
+    getChildren() {
+        return this.state().items.map(item => {
+            const row = new vscode.TreeItem(item.name);
+            row.description = `× ${item.amount}`;
+            row.iconPath = new vscode.ThemeIcon(item.name === 'Razzberry' ? 'gift' : 'circle-large-outline');
+            row.tooltip = item.name === 'Razzberry' ? 'Improves your next catch attempt.' : 'Use to catch the current wild Pokémon.';
+            if (item.amount > 0 && this.state().encounter) {
+                row.command = {
+                    command: item.name === 'Razzberry' ? 'pokemonCode.feedBerry' : 'pokemonCode.catch',
+                    title: 'Use item', arguments: item.name === 'Razzberry' ? [] : [item.name]
+                };
+            }
+            return row;
+        });
     }
-    getChildren(element) {
-        var catch_options = new Array();
-        for (var i = 0; i < items.length; i++) {
-            catch_options.push(new Item(items[i].name + '  x ' + items[i].amount));
-        }
-        return Promise.resolve(catch_options);
-    }
-    refresh() {
-        this._onDidChangeTreeData.fire();
-    }
+    refresh() { this.emitter.fire(); }
+    dispose() { this.emitter.dispose(); }
 }
 exports.NodeInventoryProvider = NodeInventoryProvider;
-;
 //# sourceMappingURL=InventoryView.js.map

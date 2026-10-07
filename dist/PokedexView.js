@@ -25,41 +25,30 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NodePokedexProvider = void 0;
 const vscode = __importStar(require("vscode"));
-const path = __importStar(require("path"));
-const savefile = __importStar(require("./data/savefile.json"));
-var pokemon_boxes = savefile.pokemon_boxes;
-class Pokemon extends vscode.TreeItem {
-    constructor(label, _id, collapsibleState) {
-        super(label, collapsibleState);
-        this.label = label;
-        this._id = _id;
-        this.collapsibleState = collapsibleState;
-        this.iconPath = {
-            light: path.join(__filename, '..', '..', 'imgs', 'sprites', this._id + '.png'),
-            dark: path.join(__filename, '..', '..', 'imgs', 'sprites', this._id + '.png')
-        };
-    }
-}
-;
+const game_1 = require("./game");
 class NodePokedexProvider {
-    constructor() {
-        this._onDidChangeTreeData = new vscode.EventEmitter();
-        this.onDidChangeTreeData = this._onDidChangeTreeData.event;
+    constructor(state, extensionUri) {
+        this.state = state;
+        this.extensionUri = extensionUri;
+        this.emitter = new vscode.EventEmitter();
+        this.onDidChangeTreeData = this.emitter.event;
     }
-    getTreeItem(element) {
-        return element;
+    getTreeItem(element) { return element; }
+    getChildren() {
+        const state = this.state();
+        return state.pokemon_boxes.map(pokemon => {
+            const row = new vscode.TreeItem(pokemon.name);
+            const active = pokemon.uid === state.activePokemonId;
+            row.id = pokemon.uid;
+            row.description = `Lv. ${pokemon.level}${active ? ' · Active' : ''}`;
+            row.tooltip = `${pokemon.name}\nLevel ${pokemon.level} · ${(0, game_1.xpProgress)(pokemon.level, pokemon.experience)}\nHP ${pokemon.hp}/${pokemon.maxHp}\nClick to make this your active Pokémon.`;
+            row.iconPath = vscode.Uri.joinPath(this.extensionUri, 'imgs', 'sprites', `${pokemon.id}.png`);
+            row.command = { command: 'pokemonCode.selectPokemon', title: 'Select active Pokémon', arguments: [pokemon.uid] };
+            return row;
+        });
     }
-    getChildren(element) {
-        var catch_options = new Array();
-        for (var i = 0; i < pokemon_boxes.length; i++) {
-            catch_options.push(new Pokemon(pokemon_boxes[i].name, pokemon_boxes[i].id));
-        }
-        return Promise.resolve(catch_options);
-    }
-    refresh() {
-        this._onDidChangeTreeData.fire();
-    }
+    refresh() { this.emitter.fire(); }
+    dispose() { this.emitter.dispose(); }
 }
 exports.NodePokedexProvider = NodePokedexProvider;
-;
 //# sourceMappingURL=PokedexView.js.map

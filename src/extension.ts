@@ -1,262 +1,162 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
-
 import * as vscode from 'vscode';
-import * as fs from 'fs';
+import { ActivityTracker, TrackingOptions } from './ActivityTracker';
 import { NodeInventoryProvider } from './InventoryView';
 import { NodePokedexProvider } from './PokedexView';
+import { BattleProvider } from './BattleView';
+import { Ball, EncounterMode, GameResult, GameState, loadState, PokemonGame, xpProgress } from './game';
+import pokedex from './data/pokedex.json';
 
-import * as savefile from './data/savefile.json';
-import * as pokedex from './data/pokedex.json';
+const storageKey = 'pokemonCode.game.v1';
+let tracker: ActivityTracker | undefined;
+let pendingSave: Promise<void> = Promise.resolve();
 
-var extensionPath = vscode.extensions.getExtension('chungmancheng.pokemon-code-2')?.extensionPath;
-var items = savefile.items;
-var pokemon_boxes: typeof pokedex = savefile.pokemon_boxes;
-var shown_pokemon = 0;
-var current_razzberry = false;
-var spawn_rarity = 300 // 1 chance out of spawn_rarity to spawn a Pokemon, 2 chances to spawn items. Each 1/spawn_rarity is a change in text-selection position.
-var inventoryProvider: NodeInventoryProvider;
-var pokedexProvider : NodePokedexProvider;
-
-
-function save(){
-    
-    fs.writeFile(`${extensionPath}/dist/data/savefile.json`, JSON.stringify({'items': items, 'pokemon_boxes': pokemon_boxes}), (err) => {
-        if (err)
-            throw err;
-
-    });
-
-    //Update UI 
-    pokedexProvider.refresh();
-    inventoryProvider.refresh();
-
+function configuration(): vscode.WorkspaceConfiguration {
+    return vscode.workspace.getConfiguration('pokemonCode');
 }
 
-function show_pokemon(){
-    
-    var pokemon_list: Array<string> = new Array<string>();
-    
-    for (var i = 0; i < pokemon_boxes.length; i++){
-        pokemon_list.push(pokedex[i].name);
-    }
-    vscode.window.showQuickPick(pokemon_list).then(function(){
-
-    });
-
+function trackingOptions(): TrackingOptions {
+    const config = configuration();
+    return {
+        enabled: config.get('enabled', true),
+        trackExternalChanges: config.get('trackExternalChanges', true),
+        activityCooldownMs: config.get('activityCooldownMs', 3000),
+        excludedDirectories: config.get('excludedDirectories', [])
+    };
 }
 
-function show_inventory(){
-
-    var catch_options: Array<string> = new Array<string>();
-    
-    for (var i = 0; i < items.length; i++){
-        if ( items[i].amount > 0 ){
-            catch_options.push( items[i].name );
-        }
+async function legacySave(context: vscode.ExtensionContext): Promise<unknown> {
+    try {
+        const bytes = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(context.extensionUri, 'dist', 'data', 'savefile.json'));
+        return JSON.parse(Buffer.from(bytes).toString('utf8'));
+    } catch {
+        return undefined;
     }
-
-    vscode.window.showQuickPick(catch_options).then(function(choice){
-
-    });
-
 }
 
-// Let's set everything up to start hunting for Pokemon!
-function init_tallgrass(){
-    
-    var newDecoration: vscode.TextEditorDecorationType;
+export async function activate(context: vscode.ExtensionContext): Promise<{ getState(): GameState }> {
+    const starter = { Bulbasaur: 1, Charmander: 4, Squirtle: 7 }[configuration().get<'Bulbasaur' | 'Charmander' | 'Squirtle'>('starter', 'Bulbasaur')];
+    const saved = context.globalState.get<unknown>(storageKey);
+    const game = new PokemonGame(loadState(saved ?? await legacySave(context), pokedex, starter), pokedex);
+    const output = vscode.window.createOutputChannel('Pokémon Code');
+    const editsPerEncounter = () => Math.max(1, configuration().get('editsPerEncounter', 8));
+    const inventoryProvider = new NodeInventoryProvider(() => game.state);
+    const pokedexProvider = new NodePokedexProvider(() => game.state, context.extensionUri);
+    const battleProvider = new BattleProvider(game, context.extensionUri, editsPerEncounter);
+    const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
+    status.command = 'pokemonCode.showBattle';
+    let saveErrorReported = false;
 
-    function _catchAttempt(pokeball:string){
-        var rate: number = 999;
-        var rates = [
-            {
-                "name": "Pokeball",
-                "rate": 255
-            },{
-                "name": "Greatball",
-                "rate": 200
-            },{
-                "name": "Ultraball",
-                "rate": 150
-            }
-        ];
-        for (var i = 0; i < rates.length; i++ ){
-            if (rates[i].name == pokeball)
-                rate = rates[i].rate;
-        }
+    const refresh = () => {
+        inventoryProvider.refresh();
+        pokedexProvider.refresh();
+        battleProvider.refresh();
+        const wild = game.state.encounter?.pokemon;
+        status.text = `$(zap) ${game.active.name} Lv.${game.active.level}${wild ? ` · ${wild.name} ${wild.hp}/${wild.maxHp} HP` : ` · Trainer Lv.${game.state.trainer.level}`}`;
+        status.tooltip = `${xpProgress(game.active.level, game.active.experience)}\nClick to open Pokémon Code battles.${trackingOptions().enabled ? '' : '\nCode rewards are paused in settings.'}`;
+    };
 
-        if (current_razzberry){
-            rate = rate * .8;
-            current_razzberry = false;
-        }
-        var catch_num = Math.floor(Math.random()*rate);
-        var pokemon_num = 255 - pokedex[shown_pokemon].exp;
-        if (pokemon_num < 1){
-            pokemon_num = 1;
-        }
-        if (catch_num <= pokemon_num){
-            vscode.window.showInformationMessage('You caught the '+pokedex[shown_pokemon].name+'! Mom would be proud.');
-
-            pokemon_boxes.push( pokedex[shown_pokemon] );
-            save();
-            vscode.window.activeTextEditor?.setDecorations(newDecoration, []);
-            shown_pokemon = -1;
-        }else{
-            var fleeCheck = Math.floor(Math.random()*1000);
-            if (fleeCheck < pokedex[shown_pokemon].exp){
-                vscode.window.showErrorMessage('Sad day, '+pokedex[shown_pokemon].name+' ran away...');
-                vscode.window.activeTextEditor?.setDecorations(newDecoration, []);
-                shown_pokemon = -1;
-            }else{
-                vscode.window.showWarningMessage('Oh no, the '+pokedex[shown_pokemon].name+' broke free!', {}, ...['Try Again']).then(function(chosen){
-                    if (chosen == 'Try Again'){
-                        _catch();
-                    }else{
-                        vscode.window.activeTextEditor?.setDecorations(newDecoration, []);
-                        shown_pokemon = -1;
-                    }
-                });
-            }
-        }
-    }
-
-    function _catch(){
-        var catch_options: Array<string> = new Array<string>();
-        
-        for (var i = 0; i < items.length; i++){
-            if ( items[i].amount > 0 ){
-                if (items[i].name != "Razzberry" || !current_razzberry)
-                    catch_options.push( items[i].name );
-            }
-        }
-
-        vscode.window.showQuickPick(catch_options).then(function(choice){
-            if (choice){
-                for (var i = 0; i < items.length; i++){
-                    if (items[i].name == choice)
-                        items[i].amount--;
+    const save = () => {
+        const snapshot = JSON.parse(JSON.stringify(game.state));
+        pendingSave = pendingSave.then(async () => {
+            try {
+                await context.globalState.update(storageKey, snapshot);
+                saveErrorReported = false;
+            } catch (error) {
+                output.appendLine(`Save failed: ${String(error)}`);
+                if (!saveErrorReported) {
+                    saveErrorReported = true;
+                    void vscode.window.showWarningMessage('Pokémon Code could not save your progress. See the Pokémon Code output for details.');
                 }
-                save();
-                switch(choice){
-                    case 'Pokeball':
-                    case 'Greatball':
-                    case 'Ultraball':
-                        _catchAttempt(choice)
-                        break;
-                    case 'Razzberry':
-                        current_razzberry = true;
-                        vscode.window.showInformationMessage('You fed the Razzberry to '+pokedex[shown_pokemon].name+'!', {}, ...['Next']).then(function(chosen){
-                            _catch();
-                        });
-                        break;
-                }
-            }else{
-                vscode.window.activeTextEditor?.setDecorations(newDecoration, []);
-                shown_pokemon = -1;
             }
         });
-    }
+        refresh();
+    };
 
-    function _walk(){
-
-        if (shown_pokemon > 0){
-            return;
-        }
-
-        var n = Math.floor(Math.random()*spawn_rarity);
-        if (n==1 || n==2){
-            shown_pokemon = Math.floor(Math.random()*150);
-            if (vscode.window.activeTextEditor){
-                vscode.window.showInformationMessage('A wild '+pokedex[shown_pokemon].name+' appeared on line ' + (vscode.window.activeTextEditor.selection.active.line+1) + '!', {},...['Catch']).then(function(chosen){
-                    if (chosen=="Catch"){
-                        _catch();
-                    }else{
-                        vscode.window.activeTextEditor?.setDecorations(newDecoration, []);
-                        shown_pokemon = -1;
-                    }
-                });
-            }
-            
-            newDecoration = vscode.window.createTextEditorDecorationType({
-                gutterIconSize: 'contain',
-                gutterIconPath: vscode.Uri.parse(extensionPath + '/imgs/sprites/'+(shown_pokemon+1)+'.png')
+    const apply = (result: GameResult) => {
+        save();
+        result.messages.forEach(message => output.appendLine(message));
+        if (!configuration().get('notifications', false)) { return; }
+        if (result.spawned) {
+            const encounterId = result.spawned;
+            const wild = game.state.encounter?.pokemon;
+            if (!wild) { return; }
+            void vscode.window.showInformationMessage(`A wild ${wild.name} (Lv. ${wild.level}) appeared!`, 'Catch', 'Battle', 'Run').then(choice => {
+                if (game.state.encounter?.pokemon.uid !== encounterId) { return; }
+                if (choice === 'Catch') { void vscode.commands.executeCommand('pokemonCode.catch'); }
+                if (choice === 'Battle') { apply(game.attack()); }
+                if (choice === 'Run') { apply(game.run()); }
             });
-            if ( vscode.window.activeTextEditor?.selection.active.line ){
-                var opts = {
-                    range: new vscode.Range(vscode.window.activeTextEditor.selection.active.line +1-1, 0, vscode.window.activeTextEditor.selection.active.line+1-1, 0),
-                    hoverMessage: ""
-                }
-                vscode.window.activeTextEditor?.setDecorations(newDecoration, [opts]);
-            }            
-        }else if (n==3){
-            var item_drop_possibilities = ['Pokeball', 'Pokeball', 'Pokeball', 'Pokeball', 'Pokeball', 'Greatball', 'Greatball', 'Ultraball', 'Razzberry'];
-            var item_drops = [];
-            item_drops.push(item_drop_possibilities[Math.floor(Math.random()*item_drop_possibilities.length)]);
-            item_drops.push(item_drop_possibilities[Math.floor(Math.random()*item_drop_possibilities.length)]);
-            item_drops.push(item_drop_possibilities[Math.floor(Math.random()*item_drop_possibilities.length)]);
-            vscode.window.showInformationMessage('You picked up: '+item_drops[0]+', '+item_drops[1]+', and '+item_drops[2]+'!').then(function(){});
-            
-            for ( var i = 0; i < 3; i++ ){
-                for ( var j = 0; j < items.length; j++ ){
-                    if ( item_drops[i] == items[j].name ){
-                        items[j].amount++;
-                    }
-                }
-            }
-            save();
+        } else if (result.messages.length) {
+            void vscode.window.showInformationMessage(result.messages.join(' '));
         }
-    }
-    
-    vscode.window.onDidChangeTextEditorSelection(_walk);
+    };
 
-}
+    const requiresEncounter = (): boolean => {
+        if (game.state.encounter) { return true; }
+        void vscode.window.showInformationMessage('Keep editing code to find a wild Pokémon.');
+        return false;
+    };
 
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
-function activate(context: vscode.ExtensionContext) {
+    const selectPokemon = async (uid?: string) => {
+        if (!uid) {
+            const choice = await vscode.window.showQuickPick(game.state.pokemon_boxes.map(pokemon => ({
+                label: `${pokemon.name} · Lv. ${pokemon.level}`,
+                description: `HP ${pokemon.hp}/${pokemon.maxHp} · ${xpProgress(pokemon.level, pokemon.experience)}${pokemon.uid === game.state.activePokemonId ? ' · Active' : ''}`,
+                uid: pokemon.uid
+            })), { placeHolder: 'Choose your active Pokémon' });
+            uid = choice?.uid;
+        }
+        if (uid && game.selectPokemon(uid)) { save(); }
+    };
 
-    // load model
-    inventoryProvider = new NodeInventoryProvider();
-    pokedexProvider = new NodePokedexProvider();
-    pokedexProvider.refresh();
-    inventoryProvider.refresh();
+    const catchPokemon = async (ball?: Ball) => {
+        if (!requiresEncounter()) { return; }
+        const encounterId = game.state.encounter?.pokemon.uid;
+        if (!ball) {
+            const available = (['Pokeball', 'Greatball', 'Ultraball'] as Ball[]).filter(name => game.itemCount(name) > 0);
+            if (!available.length) {
+                void vscode.window.showInformationMessage('No balls left. Win battles or keep coding to earn more.');
+                return;
+            }
+            const choice = await vscode.window.showQuickPick(available.map(name => ({ label: name, description: `× ${game.itemCount(name)}`, ball: name })), { placeHolder: 'Choose a ball; weaken the wild Pokémon for better odds' });
+            if (!choice) { return; }
+            ball = choice.ball;
+        }
+        if (!['Pokeball', 'Greatball', 'Ultraball'].includes(ball) || game.state.encounter?.pokemon.uid !== encounterId) { return; }
+        apply(game.catch(ball));
+    };
 
-    // extension activates
-    init_tallgrass();
-    vscode.window.showInformationMessage('Your Pokemon journey has begun!', {});
-
-    context.subscriptions.push(
-		vscode.window.registerTreeDataProvider("package-inventory", inventoryProvider )
-    );
-
-    context.subscriptions.push(
-		vscode.window.registerTreeDataProvider("package-pokedex", pokedexProvider )
-    );
-
-    // listen to "Pokemon Code - Pokedex" command
-    var disposable2 = vscode.commands.registerCommand('extension.showPokemon', function () {
-
-        show_pokemon();
-
+    tracker = new ActivityTracker(trackingOptions, batch => {
+        output.appendLine(`Code activity: ${batch.files} file(s), ${batch.sources.join(' + ')}.`);
+        const mode = configuration().get<EncounterMode>('encounterMode', 'battle');
+        apply(game.recordActivity(editsPerEncounter(), mode));
     });
 
-    // listen to "Pokemon Code - Inventory" command
-    var disposable3 = vscode.commands.registerCommand('extension.showInventory', function () {
-
-        show_inventory();
-
-    });
-
-    context.subscriptions.push(disposable2);
-    context.subscriptions.push(disposable3);
+    context.subscriptions.push(
+        output, status, inventoryProvider, pokedexProvider, battleProvider, tracker,
+        vscode.window.registerTreeDataProvider('package-inventory', inventoryProvider),
+        vscode.window.registerTreeDataProvider('package-pokedex', pokedexProvider),
+        vscode.window.registerTreeDataProvider('package-battle', battleProvider),
+        vscode.commands.registerCommand('extension.showPokemon', () => selectPokemon()),
+        vscode.commands.registerCommand('extension.showInventory', () => vscode.commands.executeCommand('package-inventory.focus')),
+        vscode.commands.registerCommand('pokemonCode.showBattle', () => vscode.commands.executeCommand('package-battle.focus')),
+        vscode.commands.registerCommand('pokemonCode.selectPokemon', selectPokemon),
+        vscode.commands.registerCommand('pokemonCode.battle', () => { if (requiresEncounter()) { apply(game.attack()); } }),
+        vscode.commands.registerCommand('pokemonCode.catch', catchPokemon),
+        vscode.commands.registerCommand('pokemonCode.feedBerry', () => { if (requiresEncounter()) { apply(game.feedBerry()); } }),
+        vscode.commands.registerCommand('pokemonCode.run', () => apply(game.run())),
+        vscode.workspace.onDidChangeConfiguration(event => {
+            if (event.affectsConfiguration('pokemonCode')) { refresh(); }
+        })
+    );
+    save();
+    status.show();
+    output.appendLine('Journey ready. Editor edits and workspace file changes earn XP.');
+    return { getState: () => JSON.parse(JSON.stringify(game.state)) as GameState };
 }
 
-exports.activate = activate;
-
-// this method is called when your extension is deactivated
-function deactivate() {
-
+export function deactivate(): Promise<void> {
+    tracker?.dispose();
+    tracker = undefined;
+    return pendingSave;
 }
-
-exports.deactivate = deactivate;
